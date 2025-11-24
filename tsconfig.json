@@ -15,7 +15,10 @@
     "rootDirs": [".", "./.react-router/types"],
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./app/*"]
+      "~/*": ["./app/*"],
+    
+      "~/lib/*": ["./app/lib/*"],           // THÊM DÒNG NÀY
+      "~/components/*": ["./app/components/*"] // TÙY CHỌN
     },
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
