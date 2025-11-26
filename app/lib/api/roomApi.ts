@@ -1,5 +1,5 @@
 import { apiClient } from "./client"
-import type { ApiResponse, CreateRoomInput, Room, UpdateRoomInput } from "~/lib/api/types"
+import type { ApiResponse, CreateRoomInput, Format, Room, UpdateRoomInput } from "~/lib/api/types"
 export const getRoomsByCinemaId = async (cinemaId: number): Promise<Room[]> => {
   const res = await apiClient.get<ApiResponse<Room>>(`/cinema/${cinemaId}/rooms`);
 
@@ -16,6 +16,16 @@ export const getRoomsByCinemaId = async (cinemaId: number): Promise<Room[]> => {
   // Trường hợp fallback: res.data.rows
   if (Array.isArray(res.data.rows)) {
     return res.data.rows;
+  }
+
+  return [];
+};
+export const getFormats = async (): Promise<Format[]> => {
+  const res = await apiClient.get<ApiResponse<Format>>(`/formats`);
+
+  // Nếu backend trả về { data: Format[] }
+  if (Array.isArray(res.data)) {
+    return res.data;
   }
 
   return [];

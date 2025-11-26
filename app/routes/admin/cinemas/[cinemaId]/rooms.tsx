@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { toast } from "sonner";
@@ -8,32 +8,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 
 import { ArrowLeft, Plus, Trash2, Edit, Film, Users, CalendarClock, Hash, Loader2 } from "lucide-react";
-import { deleteRooms, getRoomsByCinemaId } from "~/lib/api/roomApi";
+import { deleteRooms, getRoomsByCinemaId, getFormats } from "~/lib/api/roomApi";
 import { useEffect, useState } from "react";
-import type { Room } from "~/lib/api/types";
+import type { Room, Format } from "~/lib/api/types";
+import { RoomDialog } from "~/components/rooms/dialog";
 
 export default function CinemaRoomsPage() {
   const { cinemaId } = useParams<{ cinemaId: string }>();
   const navigate = useNavigate();
 
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [formats, setFormats] = useState<Format[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
-  // Load danh sách phòng
+  // Load danh sách phòng và định dạng
   const fetchRooms = async () => {
     if (!cinemaId) return;
     setLoading(true);
     try {
-      const data = await getRoomsByCinemaId(Number(cinemaId));
-      setRooms(data);
+      const [roomData, formatData] = await Promise.all([
+        getRoomsByCinemaId(Number(cinemaId)),
+        getFormats()
+      ]);
+      setRooms(roomData);
+      setFormats(formatData);
       // Reset chọn phòng khi reload
       setSelectedIds([]);
       setSelectAll(false);
     } catch (err: any) {
       console.error(err);
-      toast.error(err?.message || "Không tải được danh sách phòng");
+      toast.error(err?.message || "Không tải được dữ liệu");
       if (err?.status === 401) navigate("/login");
     } finally {
       setLoading(false);
@@ -94,11 +102,9 @@ export default function CinemaRoomsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-8">
         <div className="flex items-center gap-4">
-          <Link to="/admin/cinemas">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/cinemas")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
             <h1 className="text-3xl font-bold">Quản lý phòng chiếu</h1>
             <p className="text-muted-foreground">
@@ -117,12 +123,10 @@ export default function CinemaRoomsPage() {
             Xóa {selectedIds.length} phòng
           </Button>
 
-          <Link to="add">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm phòng mới
-            </Button>
-          </Link>
+          <Button onClick={() => { setEditingRoom(null); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Thêm phòng mới
+          </Button>
         </div>
       </div>
 
@@ -134,12 +138,10 @@ export default function CinemaRoomsPage() {
           </div>
           <h3 className="text-xl font-semibold mb-2">Chưa có phòng chiếu nào</h3>
           <p className="text-muted-foreground mb-8">Hãy tạo phòng đầu tiên</p>
-          <Link to="add">
-            <Button size="lg">
-              <Plus className="mr-2 h-5 w-5" />
-              Tạo phòng đầu tiên
-            </Button>
-          </Link>
+          <Button size="lg" onClick={() => { setEditingRoom(null); setDialogOpen(true); }}>
+            <Plus className="mr-2 h-5 w-5" />
+            Tạo phòng đầu tiên
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
@@ -182,7 +184,7 @@ export default function CinemaRoomsPage() {
                   <div className="flex items-center gap-2 text-sm">
                     <Film className="h-4 w-4 text-muted-foreground" />
                     <div className="flex flex-wrap gap-1">
-                      {room.formats.map((f: any) => (
+                      {room.formats.map((f) => (
                         <Badge key={f.id} variant="outline" className="text-xs">
                           {f.name}
                         </Badge>
@@ -197,11 +199,14 @@ export default function CinemaRoomsPage() {
                 </div>
 
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button size="sm" variant="outline" className="flex-1" asChild>
-                    <Link to={`${room.id}/edit`}>
-                      <Edit className="h-4 w-4 mr-1" />
-                      Sửa
-                    </Link>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1" 
+                    onClick={() => { setEditingRoom(room); setDialogOpen(true); }}
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    Sửa
                   </Button>
                   <Button size="sm" variant="destructive" className="flex-1" onClick={() => handleDelete(room)}>
                     <Trash2 className="h-4 w-4" />
@@ -212,6 +217,17 @@ export default function CinemaRoomsPage() {
           ))}
         </div>
       )}
+
+      {/* Dialog chung cho thêm/sửa */}
+      <RoomDialog
+        room={editingRoom}
+        cinemas={[]}
+        formats={formats}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={fetchRooms}
+        forcedCinemaId={Number(cinemaId)}
+      />
     </div>
   );
 }

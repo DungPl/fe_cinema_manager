@@ -45,6 +45,7 @@ interface RoomDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  forcedCinemaId?: number;
 }
 
 export function RoomDialog({
