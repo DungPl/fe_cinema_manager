@@ -3,7 +3,7 @@
 export interface ApiResponse<T> {
   success: boolean
   message?: string
-  data: {
+  data:T[] | {
     rows: T[]
     total?: number
   }
@@ -136,15 +136,46 @@ export interface Format{
    id: number
   name: string
 }
+export interface CreateRoomInput {
+  cinemaId: number
+  roomNumber: number
+  row: string
+  columns: number
+  formatIds: number[]
+  vipColMin?: number
+  vipColMax?: number
+}
+
+export interface UpdateRoomInput {
+  name?: string
+  roomNumber?: number
+  capacity?: number
+  row?: string
+  status?: string
+  formatIds?: number[]
+}
 export interface Room {
   id: number
   name: string
   cinemaId: number
-  number:number
+  roomNumber:number
   capacity: number
   status: string
   row: string
-  format: Format[]
+  seats:Seat[]
+  formats: Format[]
   createdAt: string
   updatedAt: string
+}
+export interface SeatType{
+  id:number
+  type: "NORMAL" | "VIP" | "COUPLE" ;
+  priceModifier:number
+}
+export interface Seat{
+  id: number
+  row: string
+  column: number
+  isAvailable:boolean
+  seatType:SeatType
 }

@@ -14,7 +14,7 @@ import {
     deleteCinemas
 } from "~/lib/api/cinemaApi"
 import type { Cinema, CinemaChain, CinemaListResponse, CreateCinemaInput, UpdateCinemaInput } from "~/lib/api/types"
-import { useNavigate } from "react-router"
+import { Outlet, useNavigate } from "react-router"
 
 export default function CinemasPage() {
     const [cinemas, setCinemas] = useState<Cinema[]>([])
@@ -185,7 +185,7 @@ export default function CinemasPage() {
                                 placeholder="Tìm tên rạp, số điện thoại, địa chỉ..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="!pl-10"
+                                className="pl-10!"
                             />
                         </div>
                         <select
@@ -283,7 +283,7 @@ export default function CinemasPage() {
                                                     {/* Thông tin rạp - đẹp lung linh */}
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="flex-shrink-0">
+                                                            <div className="shrink-0">
                                                                 {chain?.logoUrl ? (
                                                                     <img
                                                                         src={chain.logoUrl}
@@ -323,7 +323,7 @@ export default function CinemasPage() {
                                                     <td className="px-6 py-4 text-sm text-gray-600 max-w-xs">
                                                         {addressText ? (
                                                             <div className="flex items-start gap-2">
-                                                                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                                                                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                                                                 <span className="line-clamp-2">{addressText}</span>
                                                             </div>
                                                         ) : (
@@ -408,6 +408,7 @@ export default function CinemasPage() {
                 initialData={editing ?? undefined}
                 chains={chains.filter(c => c.id !== 0)}
             />
+             {/* <Outlet /> */}
         </>
     )
 }

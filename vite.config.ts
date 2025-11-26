@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+//import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { reactRouter } from "@react-router/dev/vite";
@@ -7,8 +7,8 @@ import path from "path";
 
 export default defineConfig({
   plugins: [
-    reactRouter(),           // ← thay thế hoàn toàn vite-plugin-pages
-    react(),
+    reactRouter(),
+    //react(),
     tailwindcss(),
     tsconfigPaths(),
   ],
@@ -24,6 +24,13 @@ export default defineConfig({
       "^/api": {
         target: "http://localhost:8002",
         changeOrigin: true,
+        configure: (proxy, _options) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            if (req.headers.cookie) {
+              proxyReq.setHeader("cookie", req.headers.cookie);
+            }
+          });
+        }
       },
     },
   },

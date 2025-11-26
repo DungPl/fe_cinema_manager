@@ -1,6 +1,5 @@
 // app/routes.ts
 import type { RouteConfig } from "@react-router/dev/routes"
-
 export default [
   // Public
   { path: "/", file: "routes/public/index.tsx" },
@@ -20,29 +19,33 @@ export default [
         file: "routes/admin/cinema_chains/index.tsx",
       },
       {
-      path: "cinemas",
-      file: "routes/admin/cinemas/index.tsx",
-    },
-],
+        path: "cinemas",
+        file: "routes/admin/cinemas/index.tsx",
+      },
+       {
+        path: "cinemas/:cinemaId/rooms",
+        file: "routes/admin/cinemas/[cinemaId]/rooms.tsx"
+      }
+    ],
   },
 
-// Manager
-// {
-//   path: "/manager",
-//   file: "routes/(manager)/index.tsx",
-//   children: [
-//     { path: "", file: "routes/(manager)/dashboard.tsx" },
-//     { path: "showtimes", file: "routes/(manager)/showtimes/index.tsx" },
-//   ],
-// },
+  // Manager
+  // {
+  //   path: "/manager",
+  //   file: "routes/(manager)/index.tsx",
+  //   children: [
+  //     { path: "", file: "routes/(manager)/dashboard.tsx" },
+  //     { path: "showtimes", file: "routes/(manager)/showtimes/index.tsx" },
+  //   ],
+  // },
 
-// Customer
-// {
-//   path: "/booking",
-//   file: "routes/(customer)/booking/movie/[id].tsx",
-// },
+  // Customer
+  // {
+  //   path: "/booking",
+  //   file: "routes/(customer)/booking/movie/[id].tsx",
+  // },
 
-// Error
-{ path: "/forbidden", file: "routes/forbidden.tsx" },
-{ path: "*", file: "routes/not-found.tsx" },
+  // Error
+  { path: "/forbidden", file: "routes/forbidden.tsx" },
+  { path: "*", file: "routes/not-found.tsx" },
 ] satisfies RouteConfig

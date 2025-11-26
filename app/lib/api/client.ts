@@ -2,7 +2,7 @@
 import { toast } from "sonner"
 
 const API_BASE = "http://localhost:8002/api/v1"
-
+const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 class ApiClient {
   private isRefreshing = false
   private failedQueue: Array<{
@@ -31,10 +31,12 @@ class ApiClient {
   }
 
   private logout() {
-    toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
-    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
-    document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
-    window.location.href = "/login"
+    if (isBrowser) {
+      toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
+      document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
+      document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
+      window.location.href = "/login"
+    }
   }
 
   // Hàm request chính – có xử lý refresh token
@@ -63,38 +65,51 @@ class ApiClient {
     }
 
     // XỬ LÝ REFRESH TOKEN
-    if (response.status === 401 && !this.isRefreshing) {
-      this.isRefreshing = true
+    // CHỈ REFRESH TOKEN KHI Ở BROWSER (có cookie)
+    if (response.status === 401) {
+      if (isBrowser) {
+        // Chỉ thử refresh token khi có cookie (tức là đang ở browser)
+        if (!this.isRefreshing) {
+          this.isRefreshing = true
+          try {
+            const refreshResponse = await fetch(`${API_BASE}/auth/refresh-token`, {
+              method: "POST",
+              credentials: "include",
+            })
 
-      try {
-        const refreshResponse = await fetch(`${API_BASE}/auth/refresh-token`, {
-          method: "POST",
-          credentials: "include",
-        })
-
-        if (refreshResponse.ok) {
-          // Retry request gốc
-          response = await fetch(url, {
-            ...config,
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-              ...config.headers,
-            },
-          })
-
-          // ĐỌC BODY LẠI CHO REQUEST MỚI
-          data = await response.json()
-          this.processQueue(null, data)
+            if (refreshResponse.ok) {
+              // Retry request gốc
+              response = await fetch(url, {
+                ...config,
+                credentials: "include",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...config.headers,
+                },
+              })
+              data = await response.json()
+              this.processQueue(null, data)
+            } else {
+              throw new Error("Refresh failed")
+            }
+          } catch {
+            this.processQueue(new Error("Refresh failed"))
+            this.logout()
+            throw new Error("Unauthorized")
+          } finally {
+            this.isRefreshing = false
+          }
         } else {
-          throw new Error("Refresh token failed")
+          // Đang refresh → chờ
+          await new Promise((resolve, reject) => {
+            this.failedQueue.push({ resolve, reject })
+          })
+          response = await fetch(url, { ...config, credentials: "include" })
+          data = await response.json()
         }
-      } catch (err) {
-        this.processQueue(err)
-        this.logout()
-        throw err
-      } finally {
-        this.isRefreshing = false
+      } else {
+        // ĐANG CHẠY TRÊN SERVER (loader) → KHÔNG THỂ REFRESH → CHỈ NÉM LỖI
+        throw new Response("Unauthorized", { status: 401 })
       }
     }
 
