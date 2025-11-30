@@ -162,6 +162,7 @@ export interface Room {
   capacity: number
   status: string
   row: string
+  type:string
   seats:Seat[]
   formats: Format[]
   createdAt: string
@@ -177,5 +178,5 @@ export interface Seat{
   row: string
   column: number
   isAvailable:boolean
-  seatType:SeatType
+  SeatType:SeatType
 }

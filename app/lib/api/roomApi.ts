@@ -53,7 +53,7 @@ export const createRoom = async (data: CreateRoomInput): Promise<Room> => {
 };
 export const updateRoom = async (roomId: number, data: UpdateRoomInput): Promise<Room> => {
   try {
-    const res = await apiClient.put<ApiResponse<Room>>(`/rooms/${roomId}`, data);
+    const res = await apiClient.put<ApiResponse<Room>>(`/room/${roomId}`, data);
 
     // Trường hợp backend trả về { rows: Room[] }
     if (res.data && typeof res.data === "object" && "rows" in res.data && Array.isArray(res.data.rows)) {
