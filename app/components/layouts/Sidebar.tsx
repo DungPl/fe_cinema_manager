@@ -43,10 +43,17 @@ export function Sidebar({ className }: SidebarProps) {
       children: [
         { label: "Chuỗi rạp", to: "/admin/cinema-chains" },
         { label: "Danh sách rạp", to: "/admin/cinemas" },
-        { label: "Phòng chiếu", to: "/admin/rooms" },
       ]
     },
-    { icon: Film, label: "Quản lý phim", to: "/admin/movies" },
+   {
+    icon: Film,
+    label: "Quản lý phim",
+    children: [
+      { label: "Phim", to: "/admin/movie" },
+      { label: "Diễn viên", to: "/admin/movie/actors" },
+      { label: "Đạo diễn", to: "/admin/movie/directors" },
+    ],
+  },
     { icon: Calendar, label: "Lịch chiếu", to: "/admin/schedules" },
     { icon: Ticket, label: "Bán vé", to: "/seller/counter", roles: ["seller"] },
     { icon: DollarSign, label: "Doanh thu", to: "/admin/revenue" },

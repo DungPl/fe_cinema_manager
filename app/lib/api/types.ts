@@ -3,12 +3,26 @@
 export interface ApiResponse<T> {
   success: boolean
   message?: string
-  data:T[] | {
+  // data: T[] | {
+  //   rows: T[]
+  //   total?: number
+  // }
+  // rows?: T[]  // fallback nếu backend trả trực tiếp
+  // total?: number\
+  data: {
     rows: T[]
     total?: number
   }
-  rows?: T[]  // fallback nếu backend trả trực tiếp
-  total?: number
+}
+export interface PaginatedResponse<T>{
+   rows: T[];
+  limit: number;
+  page: number;
+  totalCount: number;
+}
+export interface PaginatedApiResponse<T>{
+  status: string; // hoặc success boolean nếu muốn
+  data: PaginatedResponse<T>;
 }
 export interface AdminStatsResponse {
   status: string
@@ -88,7 +102,7 @@ export interface CinemaListResponse {
 }
 export interface Cinema {
   roomCount?: number
-  
+
   id?: number
   name: string
   phone: string
@@ -132,8 +146,8 @@ export interface CreateCinemaInput {
     longitude: number
   }
 }
-export interface Format{
-   id: number
+export interface Format {
+  id: number
   name: string
 }
 export interface CreateRoomInput {
@@ -158,25 +172,152 @@ export interface Room {
   id: number
   name: string
   cinemaId: number
-  roomNumber:number
+  roomNumber: number
   capacity: number
   status: string
   row: string
-  type:string
-  seats:Seat[]
+  type: string
+  seats: Seat[]
   formats: Format[]
   createdAt: string
   updatedAt: string
 }
-export interface SeatType{
-  id:number
-  type: "NORMAL" | "VIP" | "COUPLE" ;
-  priceModifier:number
+export interface SeatType {
+  id: number
+  type: "NORMAL" | "VIP" | "COUPLE";
+  priceModifier: number
 }
-export interface Seat{
+export interface Seat {
   id: number
   row: string
   column: number
-  isAvailable:boolean
-  SeatType:SeatType
+  isAvailable: boolean
+  SeatType: SeatType
+}
+export interface Director {
+  id: number
+  name: string
+  nationality: string
+  avatar: string
+  biography: string
+}
+export interface CreateDirectorInput {
+  name: string
+  nationality?: string
+  avatar?: string
+  biography?: string
+}
+export interface UpdateDirectorInput {
+  name?: string
+  nationality?: string
+  avatar?: string
+  biography?: string
+}
+
+export interface Actor {
+  id: number
+  name: string
+  nationality?: string
+  avatar?: string
+  biography: string
+}
+export interface CreateActors {
+  name: string
+}
+export interface UpdateActor {
+  name?: string
+  nationality?: string
+  avatar?: string
+  biography?: string
+}
+export interface AccountModerator {
+  id: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string
+  username: string
+  password: string
+  accessToken: string
+  refreshToken: string
+  active: boolean
+  role: string
+  cinemaId: number | null
+  staff: any | null
+  cinema: Cinema
+}
+export interface MoviePoster {
+  id: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string
+  movieId: number
+  url: string
+  isPrimary: boolean
+}
+
+// Trailer
+export interface MovieTrailer {
+  id: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string
+  movieId: number
+  url: string
+  isPrimary: boolean
+}
+export interface UploadResult {
+  movie: Movie
+  uploaded: (MoviePoster | MovieTrailer)[]
+  failed: { filename: string; error: string }[]
+  success_count: number
+  failed_count: number
+}
+export interface Movie {
+  id: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string
+  genre: string
+  title: string
+  duration: number
+  language: string
+  description: string
+  country: string
+  posters: MoviePoster[]
+  trailers: MovieTrailer[]
+  directorId: number
+  director: Director
+  actors: Actor[]
+  ageRestriction: string
+  formats: Format[]
+  dateSoon: string | null
+  dateRelease: string | null
+  dateEnd: string | null
+  statusMovie: string
+  isAvailable: boolean
+  accountModeratorId: number
+  accountModerator: AccountModerator
+}
+export interface PaginatedMovieResponse {
+  rows: Movie[]
+  limit: number | null
+  page: number | null
+  totalCount: number
+}
+export interface CreateMovieInput {
+  genre: string
+  title: string
+  duration: number
+  language: string
+  description: string
+  country: string
+  directorId?: number        // hoặc directorName
+  directorName?: string
+  actorIds?: number[]
+  actorNames?: string[]
+  formatIds: number[]
+  ageRestriction: "P" | "K" | "T13" | "T16" | "T18"
+  dateSoon?: string          // dùng string ISO "YYYY-MM-DD"
+  dateRelease: string        // bắt buộc
+  dateEnd?: string
 }

@@ -7,7 +7,7 @@ export const getCinemaChains = async (): Promise<CinemaChain[]> => {
   const res = await apiClient.get<ApiResponse<CinemaChain>>("/chain/")
 
   // Lấy rows từ nhiều vị trí có thể
-  const rows = res?.data?.rows ?? res?.rows ?? []
+  const rows = res?.data.rows ?? []
   
   return rows.map((c: any) => ({
     ...c,

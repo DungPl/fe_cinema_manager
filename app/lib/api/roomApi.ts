@@ -32,7 +32,7 @@ export const getFormats = async (): Promise<Format[]> => {
 };
 export const createRoom = async (data: CreateRoomInput): Promise<Room> => {
   try {
-    const res = await apiClient.post<ApiResponse<Room>>("/rooms", data);
+    const res = await apiClient.post<ApiResponse<Room>>("/room", data);
 
     // Nếu backend trả về data.rows
     if (res.data && typeof res.data === "object" && "rows" in res.data && Array.isArray(res.data.rows)) {

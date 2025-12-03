@@ -25,7 +25,19 @@ export default [
        {
         path: "cinemas/:cinemaId/rooms",
         file: "routes/admin/cinemas/[cinemaId]/rooms.tsx"
-      }
+      },
+      {
+        path:"movie",
+        file:"routes/admin/movie/index.tsx"
+      },
+      {
+        path:"movie/actors",
+        file:"routes/admin/movie/actors.tsx"
+      },
+      {
+        path:"movie/directors",
+        file:"routes/admin/movie/directors.tsx"
+      },
     ],
   },
 

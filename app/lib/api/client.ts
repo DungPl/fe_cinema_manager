@@ -47,13 +47,16 @@ class ApiClient {
   ): Promise<T> {
     const url = this.buildUrl(endpoint, params)
 
+    const headers = new Headers(config.headers);
+
+    if (!(config.body instanceof FormData)) {
+      headers.set("Content-Type", "application/json");
+    }
     let response = await fetch(url, {
       ...config,
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...config.headers,
-      },
+      headers
+
     })
 
     // ĐỌC BODY 1 LẦN DUY NHẤT → lưu vào biến
@@ -78,14 +81,16 @@ class ApiClient {
             })
 
             if (refreshResponse.ok) {
-              // Retry request gốc
+              const retryHeaders = new Headers(config.headers);
+              if (!(config.body instanceof FormData)) {
+                retryHeaders.set("Content-Type", "application/json");
+              }
+
               response = await fetch(url, {
                 ...config,
                 credentials: "include",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...config.headers,
-                },
+                headers: retryHeaders,
+
               })
               data = await response.json()
               this.processQueue(null, data)
@@ -125,11 +130,11 @@ class ApiClient {
       throw new Error("Unauthorized")
     }
 
-    return data as T
+    return (data?.data ?? data) as T;
   }
 
   // GET – có query params
-  get<T>(endpoint: string, params?: Record<string, any>) {
+  get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     return this.request<T>(endpoint, { method: "GET" }, params)
   }
 
@@ -156,7 +161,16 @@ class ApiClient {
       undefined
     )
   }
-
+  patch<T>(endpoint: string, data?: any) {
+    return this.request<T>(
+      endpoint,
+      {
+        method: "PATCH",
+        body: data ? JSON.stringify(data) : undefined,
+      },
+      undefined
+    )
+  }
   // DELETE (có thể gửi body nếu cần)
   delete<T>(endpoint: string, data?: any) {
     return this.request<T>(

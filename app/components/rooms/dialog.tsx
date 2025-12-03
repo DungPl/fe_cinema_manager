@@ -40,7 +40,7 @@ type RoomType = keyof typeof roomLimits;
 
 const formSchema = z.object({
   cinemaId: z.number().int().positive(),
-  roomNumber: z.number().int().min(1).max(50),
+  roomNumber: z.number().int().min(1).max(10).optional(), // Optional khi create, required khi edit
   type: z.enum(["Small", "Medium", "Large", "IMAX", "4DX"]),
   rows: z.number().int(),
   columns: z.number().int(),

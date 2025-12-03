@@ -1,65 +1,63 @@
-// src/app/routes/(admin)/cinema_chains/index.tsx
+// src/app/routes/(admin)/directors/index.tsx
 import { useEffect, useState, useMemo } from "react"
 import { Plus, Pencil, Trash2, Search, Filter } from "lucide-react"
 import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
 import { Badge } from "~/components/ui/badge"
 import { toast, Toaster } from "sonner"
-import { CinemaChainDialog } from "~/components/cinema_chain/dialog"
-import { getCinemaChains, createCinemaChain, updateCinemaChain, deleteCinemaChains } from "~/lib/api/cinemaChainApi"
+import { DirectorDialog } from "~/components/director/dialog"
+import { getDirector, createDirector, updateDirector, deleteDirectors } from "~/lib/api/directorApi"
 
 import { Skeleton } from "~/components/ui/skeleton"
 import { useDebounce } from "use-debounce"
-import { toBoolean } from "~/lib/utils"
-import type { CinemaChain } from "~/lib/api/types"
-export default function CinemaChainsPage() {
-  const [chains, setChains] = useState<CinemaChain[]>([])
+import type { Director } from "~/lib/api/types"
+export default function DirectorsPage() {
+  const [directors, setDirectors] = useState<Director[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<CinemaChain | null>(null)
+  const [editing, setEditing] = useState<Director | null>(null)
 
   const [search, setSearch] = useState("")
   const [debouncedSearch] = useDebounce(search, 300)
 
-  // ← ĐƯA VÀO ĐÂY
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [selectAll, setSelectAll] = useState(false)
-  const loadChains = async () => {
+  const loadDirectors = async () => {
     setLoading(true)
     try {
-      const data: CinemaChain[] = await getCinemaChains()  // ← Đã có kiểu
-      setChains(data)
+      const data: Director[] = await getDirector()
+      setDirectors(data)
     } catch (err: any) {
       console.error(err)
-      toast.error(err.message || "Không thể tải dữ liệu chuỗi rạp")
+      toast.error(err.message || "Không thể tải dữ liệu đạo diễn")
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadChains()
+    loadDirectors()
   }, [])
 
-  const filteredChains = useMemo(() => {
-    return chains.filter(c =>
-      c.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      c.description.toLowerCase().includes(debouncedSearch.toLowerCase())
+  const filteredDirectors = useMemo(() => {
+    return directors.filter(d =>
+      d.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      (d.biography && d.biography.toLowerCase().includes(debouncedSearch.toLowerCase()))
     )
-  }, [chains, debouncedSearch])
+  }, [directors, debouncedSearch])
 
   const handleSave = async (form: any) => {
     try {
       if (editing) {
-        await updateCinemaChain(editing.id, form)
+        await updateDirector(editing.id, form)
         toast.success("Cập nhật thành công")
       } else {
-        await createCinemaChain(form)
-        toast.success("Thêm chuỗi rạp thành công")
+        await createDirector(form)
+        toast.success("Thêm đạo diễn thành công")
       }
       setDialogOpen(false)
       setEditing(null)
-      loadChains()
+      loadDirectors()
     } catch (err: any) {
       toast.error(err.message || "Lưu thất bại")
     }
@@ -67,14 +65,14 @@ export default function CinemaChainsPage() {
 
   const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) return
-    if (!confirm(`Xóa ${selectedIds.length} chuỗi rạp?`)) return
+    if (!confirm(`Xóa ${selectedIds.length} đạo diễn?`)) return
 
     try {
-      await deleteCinemaChains(selectedIds)
+      await deleteDirectors(selectedIds)
       toast.success("Xóa thành công")
       setSelectedIds([])
       setSelectAll(false)
-      loadChains()
+      loadDirectors()
     } catch {
       toast.error("Xóa thất bại")
     }
@@ -90,11 +88,11 @@ export default function CinemaChainsPage() {
   // Chọn tất cả
   useEffect(() => {
     if (selectAll) {
-      setSelectedIds(filteredChains.map(c => c.id))
+      setSelectedIds(filteredDirectors.map(d => d.id))
     } else {
       setSelectedIds([])
     }
-  }, [selectAll, filteredChains])
+  }, [selectAll, filteredDirectors])
 
   return (
     <>
@@ -103,8 +101,8 @@ export default function CinemaChainsPage() {
       {/* Page Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Quản lý Chuỗi Rạp</h1>
-          <p className="text-sm text-gray-600 mt-1">Quản lý thông tin các chuỗi rạp chiếu phim</p>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý Đạo Diễn</h1>
+          <p className="text-sm text-gray-600 mt-1">Quản lý thông tin các đạo diễn phim</p>
         </div>
         <div className="flex gap-2">
           {selectedIds.length > 0 && (
@@ -114,12 +112,9 @@ export default function CinemaChainsPage() {
             </Button>
           )}
           <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" /> Thêm chuỗi rạp
+            <Plus className="w-4 h-4 mr-2" /> Thêm đạo diễn
           </Button>
         </div>
-        {/* <Button onClick={() => setDialogOpen(true)} className="shadow-sm">
-          <Plus className="w-4 h-4 mr-2" /> Thêm chuỗi rạp
-        </Button> */}
       </div>
 
       {/* Search & Filter */}
@@ -127,7 +122,7 @@ export default function CinemaChainsPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
-            placeholder="Tìm theo tên, mô tả..."
+            placeholder="Tìm theo tên, tiểu sử..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="!pl-10"
@@ -142,7 +137,7 @@ export default function CinemaChainsPage() {
       <div className="bg-white shadow-sm rounded-lg border border-gray-200">
         <div className="p-4 border-b border-gray-200">
           <p className="text-sm text-gray-600">
-            Hiển thị <strong>{filteredChains.length}</strong> chuỗi rạp
+            Hiển thị <strong>{filteredDirectors.length}</strong> đạo diễn
           </p>
         </div>
 
@@ -161,53 +156,42 @@ export default function CinemaChainsPage() {
                       className="w-4 h-4 rounded border-gray-300"
                     />
                   </th>
-                  <th className="px-6 py-3">Logo</th>
-                  <th className="px-6 py-3">Tên chuỗi</th>
-                  <th className="px-6 py-3">Mô tả</th>
-                  <th className="px-6 py-3">Trạng thái</th>
+                  <th className="px-6 py-3">Avatar</th>
+                  <th className="px-6 py-3">Tên</th>
+                  <th className="px-6 py-3">Quốc tịch</th>
+                  <th className="px-6 py-3">Tiểu sử</th>
                   <th className="px-6 py-3 text-center">Hành động</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredChains.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                {filteredDirectors.map((d) => (
+                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <input
                         type="checkbox"
-                        checked={selectedIds.includes(c.id)}
-                        onChange={() => toggleSelect(c.id)}
+                        checked={selectedIds.includes(d.id)}
+                        onChange={() => toggleSelect(d.id)}
                         className="w-4 h-4 rounded border-gray-300"
                       />
                     </td>
                     <td className="px-6 py-4">
-                      {c.logoUrl ? (
-                        <img src={c.logoUrl} alt={c.name} className="w-12 h-12 object-contain rounded-lg shadow-sm" />
+                      {d.avatar ? (
+                        <img src={d.avatar} alt={d.name} className="w-12 h-12 object-cover rounded-lg shadow-sm" />
                       ) : (
                         <div className="w-12 h-12 bg-gray-200 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                          <span className="text-xs text-gray-400">No logo</span>
+                          <span className="text-xs text-gray-400">No avatar</span>
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{c.name}</td>
-                    <td className="px-6 py-4 text-gray-600 break-words">{c.description || "-"}</td>
-
-                    <td className="px-6 py-4">
-                      <Badge
-                        variant="secondary"
-                        className={toBoolean(c.isActive)
-                          ? "bg-green-100 text-green-800 hover:bg-green-200"
-                          : "bg-red-100 text-red-800 hover:bg-red-200"
-                        }
-                      >
-                        {toBoolean(c.isActive) ? "Hoạt động" : "Ngừng"}
-                      </Badge>
-                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{d.name}</td>
+                    <td className="px-6 py-4 text-gray-600">{d.nationality || "-"}</td>
+                    <td className="px-6 py-4 text-gray-600 break-words">{d.biography || "-"}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex justify-center gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => { setEditing(c); setDialogOpen(true) }}
+                          onClick={() => { setEditing(d); setDialogOpen(true) }}
                           className="hover:bg-blue-50"
                         >
                           <Pencil className="w-4 h-4 text-blue-600" />
@@ -219,9 +203,9 @@ export default function CinemaChainsPage() {
               </tbody>
             </table>
 
-            {filteredChains.length === 0 && (
+            {filteredDirectors.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                <p>Không tìm thấy chuỗi rạp nào.</p>
+                <p>Không tìm thấy đạo diễn nào.</p>
               </div>
             )}
           </div>
@@ -229,7 +213,7 @@ export default function CinemaChainsPage() {
       </div>
 
       {/* Dialog */}
-      <CinemaChainDialog
+      <DirectorDialog
         open={dialogOpen}
         onClose={() => { setDialogOpen(false); setEditing(null) }}
         onSave={handleSave}
