@@ -130,7 +130,7 @@ class ApiClient {
       throw new Error("Unauthorized")
     }
 
-    return (data?.data ?? data) as T;
+    return data as T;
   }
 
   // GET – có query params

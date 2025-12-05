@@ -1,9 +1,9 @@
 import { apiClient } from "./client"
 import type { ApiResponse, CreateDirectorInput, Director, PaginatedApiResponse, UpdateDirectorInput } from "./types";
 
-export const getDirector = async (): Promise<Director[]> => {
-  const res = await apiClient.get<PaginatedApiResponse<Director>>(`/director/`);
-  return res.data.rows;
+export const getDirectors = async (): Promise<Director[]> => {
+  const res = await apiClient.get<PaginatedApiResponse<Director>>("/director/");
+  return res.data.rows; // ✅ res.data: PaginatedApiResponse → res.data.data: PaginatedResponse → rows
 };
 
 export const createDirector = async (formData: FormData) => {

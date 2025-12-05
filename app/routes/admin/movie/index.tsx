@@ -4,10 +4,11 @@ import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { toast } from "react-hot-toast";
-import { getMovies, approveMovie, disableMovie } from "~/lib/api/movieApi";
-import UploadTrailerDialog from "~/components/movie/UploadTrailerDialog";
-import UploadPosterDialog from "~/components/movie/UploadPosterDialog";
+import { getMovies, approveMovie, disableMovie, createMovie } from "~/lib/api/movieApi";
+import {UploadTrailerDialog }from "~/components/movie/UploadTrailerDialog";
+import  UploadPosterDialog  from "~/components/movie/UploadPosterDialog";
 import MovieDetailDialog from "~/components/movie/MovieDetailDialog"
+import { CreateMovieDialog } from "~/components/movie/CreateMovieDialog"
 export default function MovieIndex() {
     const [movies, setMovies] = useState<any[]>([]);
     const [search, setSearch] = useState("");
@@ -16,7 +17,7 @@ export default function MovieIndex() {
     const [selectedMovie, setSelectedMovie] = useState<any>(null)
     const [uploadTrailerFor, setUploadTrailerFor] = useState<number | null>(null);
     const [uploadPosterFor, setUploadPosterFor] = useState<number | null>(null);
-
+    const [createDialogOpen, setCreateDialogOpen] = useState(false);
     // Debounce search
     useEffect(() => {
         const timeout = setTimeout(() => setDebouncedSearch(search), 500);
@@ -88,7 +89,17 @@ export default function MovieIndex() {
             toast.error(err?.message || "Không thể vô hiệu hóa");
         }
     };
-
+    const handleSaveMovie = async (formData: FormData) => {
+        try {
+            // Gọi API tạo phim ở đây (ví dụ: createMovie(formData))
+            await createMovie(formData);
+            toast.success("Thêm phim thành công!");
+            setCreateDialogOpen(false);
+            loadMovies();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Thêm phim thất bại");
+        }
+    };
     return (
         <div className="p-6 space-y-6">
             <div className="flex justify-between items-center">
@@ -99,6 +110,7 @@ export default function MovieIndex() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
+                <Button onClick={() => setCreateDialogOpen(true)}>Thêm phim mới</Button> {/* nút tạo phim */}
             </div>
 
             <div className="rounded-lg border bg-white">
@@ -158,21 +170,36 @@ export default function MovieIndex() {
                                     <div className="flex flex-wrap gap-2">
                                         hierarchy
                                         {!movie.isAvailable && (
-                                            <Button size="sm" onClick={() => handleApprove(movie.id)}>
+                                            <Button size="sm" onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleApprove(movie.id)
+                                            }}>
                                                 Duyệt
                                             </Button>
                                         )}
                                         <Button
                                             size="sm"
                                             variant="destructive"
-                                            onClick={() => handleDisable(movie.id)}
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleDisable(movie.id)
+                                            }
+                                            }
                                         >
                                             Vô hiệu
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => setUploadPosterFor(movie.id)}>
+                                        <Button size="sm" variant="outline" onClick={(e) => {
+                                            e.stopPropagation()
+                                            setUploadPosterFor(movie.id)
+                                        }
+                                        }>
                                             Poster
                                         </Button>
-                                        <Button size="sm" variant="outline" onClick={() => setUploadTrailerFor(movie.id)}>
+                                        <Button size="sm" variant="outline" onClick={(e) => {
+                                            e.stopPropagation()
+                                            setUploadTrailerFor(movie.id)
+                                        }
+                                        }>
                                             Trailer
                                         </Button>
                                     </div>
@@ -189,11 +216,14 @@ export default function MovieIndex() {
                     movieId={uploadTrailerFor}
                     onClose={() => setUploadTrailerFor(null)}
                     onSuccess={loadMovies}
-                />
+                     open={true } 
+                     oldTrailers={movies.find(m => m.id === uploadTrailerFor)?.trailers ||[]}                />
             )}
             {uploadPosterFor && (
                 <UploadPosterDialog
+                    open={true}
                     movieId={uploadPosterFor}
+                    oldPosters={movies.find(m => m.id === uploadPosterFor)?.posters || []}
                     onClose={() => setUploadPosterFor(null)}
                     onSuccess={loadMovies}
                 />
@@ -205,6 +235,12 @@ export default function MovieIndex() {
                     onOpenChange={(open) => !open && setSelectedMovie(null)}
                 />
             )}
+            <CreateMovieDialog
+                open={createDialogOpen}
+                onOpenChange={setCreateDialogOpen}
+                onSave={handleSaveMovie}
+                onSuccess={() => loadMovies()}
+            />
         </div>
     );
 }

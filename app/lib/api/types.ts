@@ -3,27 +3,22 @@
 export interface ApiResponse<T> {
   success: boolean
   message?: string
-  // data: T[] | {
-  //   rows: T[]
-  //   total?: number
-  // }
-  // rows?: T[]  // fallback nếu backend trả trực tiếp
-  // total?: number\
   data: {
     rows: T[]
     total?: number
   }
 }
-export interface PaginatedResponse<T>{
-   rows: T[];
-  limit: number;
-  page: number;
+export interface PaginatedResponse<T> {
+  rows: T[];
+  limit: number | null;
+  page: number | null;
   totalCount: number;
 }
-export interface PaginatedApiResponse<T>{
-  status: string; // hoặc success boolean nếu muốn
+export interface PaginatedApiResponse<T> {
+  status: string; // hoặc boolean nếu muốn
   data: PaginatedResponse<T>;
 }
+
 export interface AdminStatsResponse {
   status: string
   data: AdminStats
@@ -320,4 +315,14 @@ export interface CreateMovieInput {
   dateSoon?: string          // dùng string ISO "YYYY-MM-DD"
   dateRelease: string        // bắt buộc
   dateEnd?: string
+}
+export interface DirectorParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+export interface ActorParams {
+  search?: string;
+  page?: number;
+  limit?: number;
 }

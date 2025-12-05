@@ -1,18 +1,23 @@
 import { toBoolean } from "../utils"
 import { apiClient } from "./client"
 
-import type { ApiResponse, CinemaChain } from "./types"
+import { type ApiResponse, type CinemaChain, type PaginatedApiResponse } from "./types"
 
 export const getCinemaChains = async (): Promise<CinemaChain[]> => {
-  const res = await apiClient.get<ApiResponse<CinemaChain>>("/chain/")
+  try {
+    // Dùng đúng type wrapper
+    const response = await apiClient.get<PaginatedApiResponse<CinemaChain>>("/chain/")
 
-  // Lấy rows từ nhiều vị trí có thể
-  const rows = res?.data.rows ?? []
-  
-  return rows.map((c: any) => ({
-    ...c,
-    isActive: toBoolean(c.isActive),
-  }))
+    // res.data chính là { status, data: { rows } }
+    const rows = response.data.rows ?? []
+
+    return rows.map(c => ({
+      ...c,
+      isActive: toBoolean(c.isActive),
+    }))
+  } catch (err: any) {
+    throw new Error(err.response?.data?.message || "Không thể tải dữ liệu chuỗi rạp")
+  }
 }
 export const createCinemaChain = async (formData: FormData) => {
   return apiClient.postForm("/chain/", formData)

@@ -20,7 +20,7 @@ export const getRoomsByCinemaId = async (cinemaId: number): Promise<Room[]> => {
 
   return [];
 };
-export const getFormats = async (): Promise<Format[]> => {
+export const getFormats = async (p0: { search: string | undefined; limit: number; }): Promise<Format[]> => {
   const res = await apiClient.get<ApiResponse<Format>>(`/formats`);
 
   // Nếu backend trả về { data: Format[] }

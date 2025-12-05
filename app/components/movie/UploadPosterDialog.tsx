@@ -1,88 +1,191 @@
-// ~/components/movie/UploadPosterDialog.tsx
-import { useState } from "react"
-import { Button } from "~/components/ui/button"
+import { useState, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog"
+import { Button } from "~/components/ui/button"
 import { Input } from "~/components/ui/input"
-import { Label } from "~/components/ui/label"
-import { toast } from "react-hot-toast"
-import { uploadMoviePosters } from "~/lib/api/movieApi"
 
-interface Props {
-  movieId: number
-  onClose: () => void
-  onSuccess: () => void
+type Poster = {
+  id: number
+  url: string
+  isPrimary: boolean
 }
 
-export default function UploadPosterDialog({ movieId, onClose, onSuccess }: Props) {
-  const [files, setFiles] = useState<File[]>([])
-  const [makePrimary, setMakePrimary] = useState(false)
-  const [uploading, setUploading] = useState(false)
+type PrimaryPoster =
+  | { type: "old"; id: number }
+  | { type: "new"; index: number }
+  | null
 
-  const handleUpload = async () => {
-    if (files.length === 0) {
-      toast.error("Vui lòng chọn ít nhất 1 ảnh")
-      return
-    }
+type Props = {
+  open: boolean
+  onClose: () => void
+  movieId: number
+  oldPosters: Poster[]
+  onSuccess?: () => void
+}
 
-    setUploading(true)
-    try {
-      await uploadMoviePosters(movieId, files, makePrimary)
-      toast.success(`Đã upload thành công ${files.length} poster!`)
-      onSuccess() // reload danh sách phim
-      onClose()
-    } catch (err: any) {
-      toast.error(err?.message || "Upload poster thất bại")
-    } finally {
-      setUploading(false)
+export default function UploadPosterDialog({ open, onClose, movieId, oldPosters, onSuccess }: Props) {
+  const [serverPosters, setServerPosters] = useState<Poster[]>(oldPosters)
+  const [newPosters, setNewPosters] = useState<File[]>([])
+
+  const initialPrimary = oldPosters.find(p => p.isPrimary)
+  const [primaryPoster, setPrimaryPoster] = useState<PrimaryPoster>(
+    initialPrimary ? { type: "old", id: initialPrimary.id } : null
+  )
+
+  const formDataRef = useRef<FormData>(new FormData())
+
+  // Add new posters
+  const handleAddPoster = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    const updated = [...newPosters, ...files]
+    setNewPosters(updated)
+
+    formDataRef.current.delete("posters")
+    updated.forEach(f => formDataRef.current.append("posters", f))
+  }
+
+  // Remove poster from server
+  const removeOldPoster = (posterId: number) => {
+    setServerPosters(prev => prev.filter(p => p.id !== posterId))
+    formDataRef.current.append("removePosterIds", posterId.toString())
+
+    if (primaryPoster?.type === "old" && primaryPoster.id === posterId) {
+      setPrimaryPoster(null)
     }
   }
 
+  // SAVE
+  const handleSave = async () => {
+    const fd = formDataRef.current
+    fd.set("movieId", movieId.toString())
+
+    // BACKEND CHỈ DÙNG isPrimary
+    // ---------------------------------
+    // Nếu chọn poster mới làm poster chính → gửi isPrimary=true
+    // Nếu chọn poster cũ → gửi isPrimary=false (backend giữ nguyên poster chính)
+    // ---------------------------------
+    if (primaryPoster) {
+      if (primaryPoster.type === "old") {
+        fd.set("primaryPosterId", primaryPoster.id.toString())
+      } else if (primaryPoster.type === "new") {
+        fd.set("primaryPosterId", `new_${primaryPoster.index}`)
+      }
+    }
+
+    const res = await fetch(`/api/v1/movie/${movieId}/poster`, {
+      method: "POST",
+      body: fd,
+    })
+
+    if (!res.ok) {
+      const err = await res.json()
+      alert(err.message ?? "Lưu poster thất bại")
+      return
+    }
+
+    onSuccess?.()
+    onClose()
+  }
+
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Upload Poster cho Phim ID: {movieId}</DialogTitle>
+          <DialogTitle>Quản lý Poster</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div>
-            <Label htmlFor="posters">Chọn nhiều ảnh poster</Label>
-            <Input
-              id="posters"
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => {
-                const selected = Array.from(e.target.files || [])
-                setFiles(selected)
-              }}
-              className="mt-2"
-            />
-            {files.length > 0 && (
-              <p className="text-sm text-gray-600 mt-2">
-                Đã chọn: {files.map(f => f.name).join(", ")}
-              </p>
-            )}
-          </div>
+        {/* OLD POSTERS */}
+        <div className="mt-4">
+          <h3 className="font-medium">Poster hiện có</h3>
 
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="primary"
-              checked={makePrimary}
-              onChange={(e) => setMakePrimary(e.target.checked)}
-            />
-            <Label htmlFor="primary">Đặt làm poster chính (chỉ áp dụng cho ảnh đầu tiên)</Label>
+          <div className="grid grid-cols-3 gap-4 mt-3">
+            {serverPosters.map(p => (
+              <div key={p.id} className="relative group border rounded p-1">
+                <img src={p.url} className="w-full h-40 rounded object-cover" />
+
+                {/* remove */}
+                <button
+                  className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
+                  onClick={() => removeOldPoster(p.id)}
+                >
+                  X
+                </button>
+
+                {/* set primary */}
+                <button
+                  className={`mt-2 w-full text-xs py-1 rounded ${
+                    primaryPoster?.type === "old" && primaryPoster.id === p.id
+                      ? "bg-green-600 text-white"
+                      : "bg-gray-200"
+                  }`}
+                  onClick={() => setPrimaryPoster({ type: "old", id: p.id })}
+                >
+                  {primaryPoster?.type === "old" && primaryPoster.id === p.id
+                    ? "Poster chính"
+                    : "Đặt làm poster chính"}
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={uploading}>
+        {/* NEW POSTERS */}
+        <div className="mt-6">
+          <h3 className="font-medium mb-2">Thêm poster mới</h3>
+
+          <Input type="file" accept="image/*" multiple onChange={handleAddPoster} />
+
+          <div className="grid grid-cols-3 gap-4 mt-3">
+            {newPosters.map((file, idx) => (
+              <div key={idx} className="relative group border rounded p-1">
+                <img
+                  src={URL.createObjectURL(file)}
+                  className="w-full h-40 object-cover rounded"
+                />
+
+                {/* remove */}
+               <button
+                  className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"
+                  onClick={() => {
+                    const updated = newPosters.filter((_, i) => i !== idx)
+                    setNewPosters(updated)
+
+                    formDataRef.current.delete("posters")
+                    updated.forEach(f => formDataRef.current.append("posters", f))
+
+                    if (primaryPoster?.type === "new" && primaryPoster.index === idx) {
+                      setPrimaryPoster(null)
+                    } else if (primaryPoster?.type === "new" && primaryPoster.index > idx) {
+                      // Sửa index nếu remove trước nó
+                      setPrimaryPoster({ type: "new", index: primaryPoster.index - 1 })
+                    }
+                  }}
+                >
+                  X
+                </button>
+
+                {/* set primary */}
+                <button
+                  className={`mt-2 w-full text-xs py-1 rounded ${
+                    primaryPoster?.type === "new" && primaryPoster.index === idx
+                      ? "bg-green-600 text-white"
+                      : "bg-gray-200"
+                  }`}
+                  onClick={() => setPrimaryPoster({ type: "new", index: idx })}
+                >
+                  {primaryPoster?.type === "new" && primaryPoster.index === idx
+                    ? "Poster chính"
+                    : "Đặt làm poster chính"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="outline" onClick={onClose}>
             Hủy
           </Button>
-          <Button onClick={handleUpload} disabled={uploading || files.length === 0}>
-            {uploading ? "Đang upload..." : `Upload ${files.length} ảnh`}
-          </Button>
+          <Button onClick={handleSave}>Lưu lại</Button>
         </div>
       </DialogContent>
     </Dialog>
