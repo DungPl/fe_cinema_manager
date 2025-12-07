@@ -48,7 +48,7 @@ export default function EditMovieDialog({ movie, open, onOpenChange, onSuccess }
   const [directorOpen, setDirectorOpen] = useState(false)
   const [directorSearch, setDirectorSearch] = useState("")
   const [directors, setDirectors] = useState<Director[]>([])
-   const [directorLoading, setDirectorLoading] = useState(false)
+  const [directorLoading, setDirectorLoading] = useState(false)
   const [selectedDirector, setSelectedDirector] = useState<Director | null>(movie.director || null)
   const [directorPage, setDirectorPage] = useState(1)
   // Diễn viên
@@ -62,38 +62,38 @@ export default function EditMovieDialog({ movie, open, onOpenChange, onSuccess }
   const [saving, setSaving] = useState(false)
 
   // Load danh sách khi mở dialog hoặc tìm kiếm
- useEffect(() => {
-  if (!directorOpen || !open) return
+  useEffect(() => {
+    if (!directorOpen || !open) return
 
-  const fetchDirectors = async () => {
-    if (directorLoading) return
-    setDirectorLoading(true)
+    const fetchDirectors = async () => {
+      if (directorLoading) return
+      setDirectorLoading(true)
 
-    try {
-      const res = await getDirectors({
-        search: directorSearch || undefined,
-        page: directorPage,
-        limit: 20,
-      })
+      try {
+        const res = await getDirectors({
+          search: directorSearch || undefined,
+          page: directorPage,
+          limit: 20,
+        })
 
-      const newDirectors = res.data.rows
-      if (directorPage === 1) {
-        setDirectors(newDirectors)
-      } else {
-        setDirectors(prev => [...prev, ...newDirectors])
+        const newDirectors = res.data.rows
+        if (directorPage === 1) {
+          setDirectors(newDirectors)
+        } else {
+          setDirectors(prev => [...prev, ...newDirectors])
+        }
+
+        // Nếu muốn phân trang
+        // setDirectorHasMore((res.data.page || 1) * (res.data.limit || 20) < res.data.totalCount)
+      } catch (err) {
+        toast.error("Không tải được danh sách đạo diễn")
+      } finally {
+        setDirectorLoading(false)
       }
-
-      // Nếu muốn phân trang
-      // setDirectorHasMore((res.data.page || 1) * (res.data.limit || 20) < res.data.totalCount)
-    } catch (err) {
-      toast.error("Không tải được danh sách đạo diễn")
-    } finally {
-      setDirectorLoading(false)
     }
-  }
 
-  fetchDirectors()
-}, [directorSearch, directorPage, directorOpen, open])
+    fetchDirectors()
+  }, [directorSearch, directorPage, directorOpen, open])
 
 
   // useEffect(() => {
@@ -133,6 +133,27 @@ export default function EditMovieDialog({ movie, open, onOpenChange, onSuccess }
 
     fetchActors()
   }, [actorSearch, actorPage, actorOpen, open])
+  useEffect(() => {
+    if (!open) return
+
+    setFormData({
+      title: movie.title || "",
+      genre: movie.genre || "",
+      duration: movie.duration?.toString() || "",
+      language: movie.language || "",
+      description: movie.description || "",
+      country: movie.country || "",
+      ageRestriction: movie.ageRestriction || "P",
+      statusMovie: movie.statusMovie || "COMING_SOON",
+      dateRelease: movie.dateRelease?.split("T")[0] || "",
+      dateSoon: movie.dateSoon?.split("T")[0] || "",
+      dateEnd: movie.dateEnd?.split("T")[0] || "",
+    })
+
+    setSelectedDirector(movie.director || null)
+    setSelectedActors(movie.actors || [])
+  }, [movie, open])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)

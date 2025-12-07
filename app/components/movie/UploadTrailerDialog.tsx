@@ -1,9 +1,10 @@
 // ~/components/movie/UploadTrailerDialog.tsx
 
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 import { Button } from "~/components/ui/button"
 import { X, Star, Video } from "lucide-react"
+import axios from "axios"
 
 type Props = {
   open: boolean
@@ -17,6 +18,8 @@ type PrimaryTrailer =
   | { type: "old"; id: number }
   | { type: "new"; index: number }
   | null
+
+type UploadProgress = { [index: number]: number }
 
 export function UploadTrailerDialog({
   open,
@@ -32,31 +35,21 @@ export function UploadTrailerDialog({
       ? { type: "old", id: oldTrailers.find((t) => t.is_primary)!.id }
       : null
   )
+  const [progress, setProgress] = useState<UploadProgress>({})
+  const [uploading, setUploading] = useState(false)
 
-  const formDataRef = useRef<FormData>(new FormData())
-
-  /** --------------------------------------
-   *  CHỌN FILE VIDEO
-   * --------------------------------------*/
   const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
+    if (!e.target.files) return
+    const list = [...preview]
 
-    const newPrev = [...preview]
-    const fd = formDataRef.current
-
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i]
-      newPrev.push({ url: URL.createObjectURL(f), file: f })
-      fd.append("trailers", f)
+    for (let i = 0; i < e.target.files.length; i++) {
+      const f = e.target.files[i]
+      list.push({ url: URL.createObjectURL(f), file: f })
     }
 
-    setPreview(newPrev)
+    setPreview(list)
   }
 
-  /** --------------------------------------
-   *  XÓA TRAILER CŨ / MỚI
-   * --------------------------------------*/
   const removeOld = (id: number) => {
     setRemovedIds((prev) => [...prev, id])
     if (primaryTrailer?.type === "old" && primaryTrailer.id === id) {
@@ -65,67 +58,110 @@ export function UploadTrailerDialog({
   }
 
   const removeNew = (index: number) => {
-    const fd = formDataRef.current
+    const list = [...preview]
+    list.splice(index, 1)
+    setPreview(list)
 
-    const temp = Array.from(fd.getAll("trailers"))
-    temp.splice(index, 1)
-    fd.delete("trailers")
-    temp.forEach((v) => fd.append("trailers", v as File))
-
-    const pv = [...preview]
-    pv.splice(index, 1)
-    setPreview(pv)
-
-    if (primaryTrailer?.type === "new" && primaryTrailer.index === index) {
-      setPrimaryTrailer(null)
-    } else if (primaryTrailer?.type === "new" && primaryTrailer.index > index) {
-      // Sửa index nếu remove trước nó
-      setPrimaryTrailer({ type: "new", index: primaryTrailer.index - 1 })
+    if (primaryTrailer?.type === "new") {
+      if (primaryTrailer.index === index) setPrimaryTrailer(null)
+      else if (primaryTrailer.index > index)
+        setPrimaryTrailer({ type: "new", index: primaryTrailer.index - 1 })
     }
   }
 
   /** --------------------------------------
-   *  LƯU VIDEO
+   *  UPLOAD TRAILER
    * --------------------------------------*/
-  const handleSave = async () => {
-    const fd = formDataRef.current
+   const handleSave = async () => {
+    setUploading(true)
+    const uploadedTrailers: { url: string; publicId: string }[] = []
+    const failed: string[] = []
 
-    // Gửi danh sách ID cần xóa
-    removedIds.forEach((id) => fd.append("removeTrailerIds", id.toString()))
+    for (let idx = 0; idx < preview.length; idx++) {
+      const { file } = preview[idx]
 
-    // Sửa: Sử dụng primaryTrailerId thay vì isPrimary
-    // ---------------------------------
-    // Nếu chọn trailer cũ → gửi primaryTrailerId = id (string)
-    // Nếu chọn trailer mới → gửi primaryTrailerId = `new_${index}`
-    // Nếu không chọn → không gửi, backend không thay đổi primary
-    // ---------------------------------
-    if (primaryTrailer) {
-      if (primaryTrailer.type === "old") {
-        fd.set("primaryTrailerId", primaryTrailer.id.toString())
-      } else if (primaryTrailer.type === "new") {
-        fd.set("primaryTrailerId", `new_${primaryTrailer.index}`)
+      try {
+        const publicId = `movie_${movieId}_trailer_${Date.now()}_${idx}`
+
+        // 1. Lấy chữ ký Cloudinary (backend đã sửa đúng format)
+        const sigRes = await fetch('/api/v1/cloudinary-signature', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            folder: "movies/trailers",
+            public_id: publicId,
+            resource_type: "video"
+          })
+        })
+
+        const sigData = await sigRes.json()
+
+        // 2. Upload video lên Cloudinary
+        const fd = new FormData()
+        fd.append("file", file)
+        fd.append("api_key", sigData.apiKey)
+        fd.append("timestamp", sigData.timestamp.toString())
+        fd.append("signature", sigData.signature)
+        fd.append("folder", "movies/trailers")
+        fd.append("public_id", publicId)
+        fd.append("resource_type", "video")
+        const uploadRes = await axios.post(
+          `https://api.cloudinary.com/v1_1/${sigData.cloudName}/video/upload`,
+          fd,
+          {
+            onUploadProgress: (e) => {
+              const percent = Math.round((e.loaded * 100) / (e.total || 1))
+              setProgress((prev) => ({ ...prev, [idx]: percent }))
+            },
+          }
+        )
+
+        uploadedTrailers.push({
+          url: uploadRes.data.secure_url,
+          publicId: uploadRes.data.public_id,
+        })
+      } catch (err) {
+        failed.push(file.name)
       }
+    }
+
+    // 3. Xác định trailer chính
+    let primaryId = ""
+    if (primaryTrailer) {
+      if (primaryTrailer.type === "old") primaryId = primaryTrailer.id.toString()
+      else primaryId = `new_${primaryTrailer.index}`
+    }
+
+    // 4. Gửi kết quả cho server
+    const payload = {
+      removeTrailerIds: removedIds,
+      uploadedTrailers,
+      primaryTrailerId: primaryId,
     }
 
     const res = await fetch(`/api/v1/movie/${movieId}/trailer`, {
       method: "POST",
-      body: fd,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     })
 
     const json = await res.json()
 
     if (!res.ok) {
       alert(json.message ?? "Lỗi upload trailer")
+      setUploading(false)
       return
     }
 
     await onSuccess?.()
     onClose()
+    setUploading(false)
   }
+ 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Upload Trailer</DialogTitle>
         </DialogHeader>
@@ -136,17 +172,15 @@ export function UploadTrailerDialog({
             <Video size={18} /> Trailer cũ
           </h3>
           <div className="grid grid-cols-2 gap-4">
-            {oldTrailers.map((t) => {
-              if (removedIds.includes(t.id)) return null
-              return (
+            {oldTrailers.map((t) =>
+              removedIds.includes(t.id) ? null : (
                 <div key={t.id} className="relative border rounded p-2">
                   <video src={t.url} controls className="w-full rounded" />
 
-                  {/* Set primary */}
                   <Button
                     variant={
                       primaryTrailer?.type === "old" &&
-                      primaryTrailer.id === t.id
+                        primaryTrailer.id === t.id
                         ? "default"
                         : "secondary"
                     }
@@ -156,12 +190,11 @@ export function UploadTrailerDialog({
                   >
                     <Star className="mr-2 h-4 w-4" />
                     {primaryTrailer?.type === "old" &&
-                    primaryTrailer.id === t.id
+                      primaryTrailer.id === t.id
                       ? "Trailer chính"
                       : "Đặt làm trailer chính"}
                   </Button>
 
-                  {/* Remove */}
                   <button
                     className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"
                     onClick={() => removeOld(t.id)}
@@ -170,42 +203,46 @@ export function UploadTrailerDialog({
                   </button>
                 </div>
               )
-            })}
+            )}
           </div>
         </div>
 
-        {/* NEW TRAILERS PREVIEW */}
+        {/* NEW TRAILERS */}
         <div className="mt-6 space-y-3">
           <h3 className="font-medium">Trailer mới</h3>
 
-          <input
-            type="file"
-            accept="video/*"
-            multiple
-            onChange={handleSelectFiles}
-          />
+          <input type="file" accept="video/*" multiple onChange={handleSelectFiles} />
 
           <div className="grid grid-cols-2 gap-4 mt-3">
             {preview.map((p, idx) => (
               <div key={idx} className="relative border rounded p-2">
                 <video src={p.url} controls className="w-full rounded" />
 
+                <p className="text-sm text-gray-600 mt-1 truncate">{p.file.name}</p>
+
+                {progress[idx] !== undefined && (
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                    <div
+                      className="bg-blue-600 h-2.5 rounded-full"
+                      style={{ width: `${progress[idx]}%` }}
+                    />
+                  </div>
+                )}
+
                 <Button
                   variant={
                     primaryTrailer?.type === "new" &&
-                    primaryTrailer.index === idx
+                      primaryTrailer.index === idx
                       ? "default"
                       : "secondary"
                   }
                   size="sm"
                   className="mt-2 w-full"
-                  onClick={() =>
-                    setPrimaryTrailer({ type: "new", index: idx })
-                  }
+                  onClick={() => setPrimaryTrailer({ type: "new", index: idx })}
                 >
                   <Star className="mr-2 h-4 w-4" />
                   {primaryTrailer?.type === "new" &&
-                  primaryTrailer.index === idx
+                    primaryTrailer.index === idx
                     ? "Trailer chính"
                     : "Đặt làm trailer chính"}
                 </Button>
@@ -222,13 +259,14 @@ export function UploadTrailerDialog({
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={uploading}>
             Hủy
           </Button>
-          <Button onClick={handleSave}>Lưu</Button>
+          <Button onClick={handleSave} disabled={uploading}>
+            {uploading ? "Đang lưu..." : "Lưu"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
   )
 }
- 

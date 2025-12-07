@@ -105,7 +105,7 @@ export interface Cinema {
   chainId: number
   createdAt?: string
   updatedAt?: string
-  address?: Address[]  // <-- Lưu ý đây là mảng
+  address: Address[]  // <-- Lưu ý đây là mảng
   rooms?: any[]          // nếu muốn preload phòng chiếu
   promotions?: any[]     // nếu muốn preload khuyến mãi
 }
@@ -176,6 +176,8 @@ export interface Room {
   formats: Format[]
   createdAt: string
   updatedAt: string
+
+  Cinema:Cinema
 }
 export interface SeatType {
   id: number
@@ -325,4 +327,84 @@ export interface ActorParams {
   search?: string;
   page?: number;
   limit?: number;
+}
+export type TicketStatus =
+  "RESERVED"   // đã giữ chỗ (chưa thanh toán)
+  | "PAID"     // vé hợp lệ
+  | "CANCELLED"
+export interface Ticket {
+  id: number
+  bookingTime: string
+  status: string
+  bookingCode: string
+  price: number
+  reservationId: number
+  showtimeId: number
+  seatId: number
+
+  // preload
+  seat?: Seat
+}
+export interface CreateShowtimeInput {
+  movieId: number
+  roomId: number
+  startTime: string
+  endTime?: string        // nếu backend tự tính thì optional
+  basePrice: number
+}
+export interface CreateReservationInput {
+  showtimeId: number
+  seatIds: number[]        // list ghế chọn
+  customerId?: number | null
+}
+export interface CreateTicketInput {
+  reservationId: number
+  seatId: number
+  price: number
+}
+export type ShowtimeStatus = "UPCOMING" | "ONGOING" | "ENDED"
+export interface Showtime {
+  id: number
+  movieId: number
+  roomId: number
+  price :number
+  startTime: string
+  endTime: string
+
+  movie: Movie
+  Room: Room
+  tickets:Ticket[]
+}
+export interface ShowtimeResponse {
+  price: number
+  movie: Movie
+  room: Room
+  startTime: string
+  endTime: string
+
+  fillRate: number        // tỉ lệ lấp phòng %
+  bookedSeats: number     // số ghế đã đặt
+  totalSeats: number      // tổng số ghế
+}
+export interface FilterShowtimeParams {
+  showingStatus?: "UPCOMING" | "ONGOING" | "ENDED"
+  movieId?: number
+  roomId?: number
+  cinemaId?: number
+  province?: string
+  district?: string
+  ward?: string
+  startDate?: string | null
+  endDate?: string | null
+
+  limit?: number
+  page?: number
+}
+export interface CreateShowtimeBatchInput {
+  movieId: number;
+  roomIds: number[];
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  formats: string[]; // ["2D", "3D"]
+  timeSlots: string[]; // ["18:30", "20:45"]
 }

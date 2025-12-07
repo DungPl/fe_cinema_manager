@@ -44,12 +44,22 @@ export default function MovieDetailDialog({ movie, open, onOpenChange, onSuccess
         try {
             const res = await getMovieById(currentMovie.id)
             setCurrentMovie(res)
+            if (onSuccess) onSuccess()
+
+            // ⛔ CHỐT QUAN TRỌNG: đóng dialog sau khi cập nhật
+            setEditOpen(false)
+            onOpenChange(false)
         } catch (err) {
             console.error("Không tải lại phim:", err)
         }
     }
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={(open) => {
+            if (!open) {
+                setEditOpen(false)
+                onOpenChange(false)
+            }
+        }}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{currentMovie.title}</DialogTitle>
@@ -211,19 +221,28 @@ export default function MovieDetailDialog({ movie, open, onOpenChange, onSuccess
                         )}
 
                         {/* EditMovieDialog */}
-                        {editOpen && (
-                            <EditMovieDialog
-                                movie={currentMovie}
-                                open={editOpen}
-                                onOpenChange={setEditOpen}
-                                onSuccess={handleEditSuccess}
-                            />
-                        )}
+
+                        <EditMovieDialog
+                            movie={currentMovie}
+                            open={editOpen}
+                            onOpenChange={setEditOpen}
+                            onSuccess={handleEditSuccess}
+                        />
+
 
                         {/* Thông tin thêm */}
-                        <div className="text-xs text-gray-500 space-y-1 pt-4 border-t">
-                            <div>Tạo: {format(new Date(currentMovie.createdAt), "HH:mm dd/MM/yyyy")}</div>
-                            <div>Cập nhật: {format(new Date(currentMovie.updatedAt), "HH:mm dd/MM/yyyy")}</div>
+                        <div>
+                            Tạo:{" "}
+                            {currentMovie?.createdAt
+                                ? format(new Date(currentMovie.createdAt), "HH:mm dd/MM/yyyy")
+                                : "—"}
+                        </div>
+
+                        <div>
+                            Cập nhật:{" "}
+                            {currentMovie?.updatedAt
+                                ? format(new Date(currentMovie.updatedAt), "HH:mm dd/MM/yyyy")
+                                : "—"}
                         </div>
                     </div>
                 </div>

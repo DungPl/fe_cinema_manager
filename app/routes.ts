@@ -38,6 +38,10 @@ export default [
         path:"movie/directors",
         file:"routes/admin/movie/directors.tsx"
       },
+      {
+        path:"showtime",
+        file:"routes/admin/showtime/index.tsx"
+      }
     ],
   },
 

@@ -3,7 +3,7 @@ import { apiClient } from "./client"
 import type { Actor, ActorParams, ApiResponse, Director, DirectorParams, Movie, PaginatedApiResponse, PaginatedMovieResponse, UploadResult } from "./types"
 
 // Lấy danh sách movie (có phân trang & search)
-export const getMovies = (params?: { page?: number; limit?: number; search?: string }) => {
+export const getMovies = (params?: { page?: number; limit?: number; search?: string;  showingStatus?: "COMING_SOON" | "NOW_SHOWING" | "ENDED" }) => {
   return apiClient.get<PaginatedApiResponse<Movie>>("/movie", params)
     .then(res => ({
       rows: res.data.rows,
@@ -40,7 +40,7 @@ export const approveMovie = async (movieId: number): Promise<Movie> => {
 }
 
 // Vô hiệu hóa movie
-export const disableMovie = async (data: { movieIds: number[] }): Promise<{ success: boolean }> => {
+export const disableMovie = async (data: { ids: number[] }): Promise<{ success: boolean }> => {
   return apiClient.put<{ success: boolean }>("/movie/disable", data)
 }
 

@@ -54,7 +54,7 @@ export function Sidebar({ className }: SidebarProps) {
       { label: "Đạo diễn", to: "/admin/movie/directors" },
     ],
   },
-    { icon: Calendar, label: "Lịch chiếu", to: "/admin/schedules" },
+    { icon: Calendar, label: "Lịch chiếu", to: "/admin/showtime" },
     { icon: Ticket, label: "Bán vé", to: "/seller/counter", roles: ["seller"] },
     { icon: DollarSign, label: "Doanh thu", to: "/admin/revenue" },
     { icon: Users, label: "Người dùng", to: "/admin/users", roles: ["admin"] },

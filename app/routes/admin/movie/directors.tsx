@@ -6,7 +6,7 @@ import { Input } from "~/components/ui/input"
 import { Badge } from "~/components/ui/badge"
 import { toast, Toaster } from "sonner"
 import { DirectorDialog } from "~/components/director/dialog"
-import { getDirector, createDirector, updateDirector, deleteDirectors } from "~/lib/api/directorApi"
+import { getDirectors, createDirector, updateDirector, deleteDirectors } from "~/lib/api/directorApi"
 
 import { Skeleton } from "~/components/ui/skeleton"
 import { useDebounce } from "use-debounce"
@@ -25,7 +25,7 @@ export default function DirectorsPage() {
   const loadDirectors = async () => {
     setLoading(true)
     try {
-      const data: Director[] = await getDirector()
+      const data: Director[] = await getDirectors()
       setDirectors(data)
     } catch (err: any) {
       console.error(err)
