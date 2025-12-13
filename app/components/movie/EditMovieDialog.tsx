@@ -13,7 +13,8 @@ import { toast } from "sonner"
 import { Check, ChevronsUpDown, Plus } from "lucide-react"
 import { editMovie, getDirectors, getActors } from "~/lib/api/movieApi"
 import type { Movie, Director, Actor } from "~/lib/api/types"
-
+import { getFormats } from "~/lib/api/roomApi"
+import type { Format } from "~/lib/api/types"
 interface Props {
   movie: Movie
   open: boolean
@@ -27,7 +28,7 @@ function processDateField(value: string | undefined, original?: string | null) {
   if (value === undefined) return undefined;         // không đổi → bỏ qua
   if (value === "") return null;                     // người dùng xóa → null
   if (value === original?.split("T")[0]) return undefined; // giống cũ → bỏ qua
-  return `${value}T00:00:00.000Z`;                   // người dùng đổi → gắn Z
+  return value;                   // người dùng đổi → gắn Z
 }
 export default function EditMovieDialog({ movie, open, onOpenChange, onSuccess }: Props) {
   const [formData, setFormData] = useState({
@@ -43,7 +44,10 @@ export default function EditMovieDialog({ movie, open, onOpenChange, onSuccess }
     dateSoon: movie.dateSoon ? movie.dateSoon?.split("T")[0] : "",
     dateEnd: movie.dateEnd ? movie.dateEnd?.split("T")[0] : "",
   })
-
+  const [formatOpen, setFormatOpen] = useState(false)
+  const [formatSearch, setFormatSearch] = useState("")
+  const [formats, setFormats] = useState<Format[]>([])
+  const [selectedFormats, setSelectedFormats] = useState<Format[]>(movie.formats || [])
   // Đạo diễn
   const [directorOpen, setDirectorOpen] = useState(false)
   const [directorSearch, setDirectorSearch] = useState("")
@@ -60,6 +64,21 @@ export default function EditMovieDialog({ movie, open, onOpenChange, onSuccess }
   const [actorHasMore, setActorHasMore] = useState(true)
   const [actorLoading, setActorLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+
+
+
+  useEffect(() => {
+    if (!open) return
+    const fetch = async () => {
+      getFormats({
+        search: formatSearch || undefined,
+        limit: 20
+      })
+        .then((res) => setFormats(res))
+        .catch(() => toast.error("Không tải được định dạng phim"));
+    }
+    fetch()
+  }, [open, formatSearch])
 
   // Load danh sách khi mở dialog hoặc tìm kiếm
   useEffect(() => {
@@ -220,10 +239,17 @@ export default function EditMovieDialog({ movie, open, onOpenChange, onSuccess }
       if (newEnd !== undefined) payload.dateEnd = newEnd;
       else delete payload.dateEnd;
 
-      console.log("Payload gửi đi:", JSON.stringify(payload, null, 2))
+      const originalFormatIds = movie.formats?.map(f => f.id) || []
+      const newFormatIds = selectedFormats.map(f => f.id)
+
+      if (JSON.stringify(originalFormatIds) !== JSON.stringify(newFormatIds)) {
+        payload.formatIds = newFormatIds
+      }
+      //console.log("Payload gửi đi:", JSON.stringify(payload, null, 2))
       // Nếu người dùng xóa ngày (rỗng), gửi null
       // if (formData.dateSoon === "") payload.dateSoon = null
       // if (formData.dateEnd === "") payload.dateEnd = null
+
       await editMovie(movie.id, payload)
       toast.success("Cập nhật phim thành công!")
       onSuccess()
@@ -361,6 +387,81 @@ export default function EditMovieDialog({ movie, open, onOpenChange, onSuccess }
               </div>
             )}
           </div>
+
+          {/* Format */}
+          <div>
+            <Label>Định dạng phim (Format)</Label>
+            <Popover open={formatOpen} onOpenChange={setFormatOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  {selectedFormats.length > 0
+                    ? `${selectedFormats.length} định dạng được chọn`
+                    : "Chọn định dạng..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput
+                    placeholder="Tìm format..."
+                    value={formatSearch}
+                    onValueChange={setFormatSearch}
+                  />
+
+                  <CommandEmpty>Không tìm thấy</CommandEmpty>
+
+                  <CommandGroup className="max-h-60 overflow-auto">
+                    {formats.map((fmt) => {
+                      const isSelected = selectedFormats.some(f => f.id === fmt.id)
+                      return (
+                        <CommandItem
+                          key={fmt.id}
+                          onSelect={() => {
+                            if (isSelected) {
+                              setSelectedFormats(prev =>
+                                prev.filter(f => f.id !== fmt.id)
+                              )
+                            } else {
+                              setSelectedFormats(prev => [...prev, fmt])
+                            }
+                          }}
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${isSelected ? "opacity-100" : "opacity-0"}`}
+                          />
+                          {fmt.name}
+                        </CommandItem>
+                      )
+                    })}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            {/* Badges */}
+            {selectedFormats.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedFormats.map((fmt) => (
+                  <Badge key={fmt.id} variant="secondary">
+                    {fmt.name}
+                    <button
+                      type="button"
+                      className="ml-1 text-xs"
+                      onClick={() =>
+                        setSelectedFormats(prev =>
+                          prev.filter(f => f.id !== fmt.id)
+                        )
+                      }
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
 
           {/* Các field còn lại (tuổi, trạng thái, ngày chiếu...) */}
           <div className="grid grid-cols-2 gap-4">

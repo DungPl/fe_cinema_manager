@@ -1,6 +1,6 @@
 // ~/lib/api/movieApi.ts
 import { apiClient } from "./client"
-import type { Actor, ActorParams, ApiResponse, Director, DirectorParams, Movie, PaginatedApiResponse, PaginatedMovieResponse, UploadResult } from "./types"
+import type { Actor, ActorParams, ApiResponse, ApiResponseOne, Director, DirectorParams, Movie, PaginatedApiResponse, PaginatedMovieResponse, UploadResult } from "./types"
 
 // Lấy danh sách movie (có phân trang & search)
 export const getMovies = (params?: { page?: number; limit?: number; search?: string;  showingStatus?: "COMING_SOON" | "NOW_SHOWING" | "ENDED" }) => {
@@ -21,7 +21,8 @@ export const getActors = (params: ActorParams = {}) => {
 }
 // Lấy chi tiết 1 movie
 export const getMovieById = async (movieId: number): Promise<Movie> => {
-  return apiClient.get<Movie>(`/movie/${movieId}`)
+  const res = await apiClient.get<ApiResponseOne<Movie>>(`/movie/${movieId}`)
+  return res.data   // <-- LẤY ĐÚNG MOVIE OBJECT
 }
 
 // Tạo movie mới

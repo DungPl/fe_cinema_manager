@@ -32,7 +32,7 @@ export default function CinemaRoomsPage() {
     try {
       const [roomData, formatData] = await Promise.all([
         getRoomsByCinemaId(Number(cinemaId)),
-        getFormats()
+        getFormats({ search: "", limit: 100 })
       ]);
       setRooms(roomData);
       setFormats(formatData);

@@ -188,6 +188,7 @@ export default function MovieIndex() {
                       type="checkbox"
                       checked={selectAll}
                       onChange={(e) => setSelectAll(e.target.checked)}
+                      
                       className="w-4 h-4 rounded border-gray-300"
                     />
                   </th>
@@ -208,7 +209,10 @@ export default function MovieIndex() {
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() => setSelectedMovie(movie)}
                   >
-                    <td className="px-6 py-4">
+                    <td 
+                    className="px-6 py-4"
+                    onClick={(e) => e.stopPropagation()} 
+                    >
                       <input
                         type="checkbox"
                         checked={selectedIds.includes(movie.id)}

@@ -18,7 +18,11 @@ export interface PaginatedApiResponse<T> {
   status: string; // hoặc boolean nếu muốn
   data: PaginatedResponse<T>;
 }
-
+export interface ApiResponseOne<T> {
+  success: boolean
+  message?: string
+  data: T
+}
 export interface AdminStatsResponse {
   status: string
   data: AdminStats
@@ -177,7 +181,7 @@ export interface Room {
   createdAt: string
   updatedAt: string
 
-  Cinema:Cinema
+  cinema: Cinema
 }
 export interface SeatType {
   id: number
@@ -367,24 +371,36 @@ export interface Showtime {
   id: number
   movieId: number
   roomId: number
-  price :number
+  price: number
   startTime: string
   endTime: string
 
   movie: Movie
   Room: Room
-  tickets:Ticket[]
+  tickets: Ticket[]
 }
+export type AutoGenerateResponse = {
+  status: string;
+  data: {
+    message: string;
+    created: number;
+    skipped: number;
+    totalDays: number;
+    totalRooms: number;
+  };
+};
+
 export interface ShowtimeResponse {
+  id: number
   price: number
   movie: Movie
   room: Room
-  startTime: string
-  endTime: string
+  start_time: string
+  end_time: string
 
-  fillRate: number        // tỉ lệ lấp phòng %
-  bookedSeats: number     // số ghế đã đặt
-  totalSeats: number      // tổng số ghế
+  fill_rate: number        // tỉ lệ lấp phòng %
+  booked_seats: number     // số ghế đã đặt
+  total_seats: number      // tổng số ghế
 }
 export interface FilterShowtimeParams {
   showingStatus?: "UPCOMING" | "ONGOING" | "ENDED"
@@ -394,8 +410,8 @@ export interface FilterShowtimeParams {
   province?: string
   district?: string
   ward?: string
-  startDate?: string | null
-  endDate?: string | null
+  startDate?: string
+  endDate?: string
 
   limit?: number
   page?: number
@@ -407,4 +423,10 @@ export interface CreateShowtimeBatchInput {
   endDate: string;   // YYYY-MM-DD
   formats: string[]; // ["2D", "3D"]
   timeSlots: string[]; // ["18:30", "20:45"]
+}
+export interface UpdateShowtime {
+  movieId: number;
+  roomIds: number[];
+  start_time: string
+  price: number
 }
