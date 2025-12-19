@@ -73,14 +73,16 @@ interface MapPickerProps {
 }
 export interface Address {
   id?: number
-  house_number: string
-  street: string
-  ward: string
-  district: string
-  province: string
   fullAddress: string
-  latitude?: number
-  longitude?: number
+  latitude: number
+  longitude: number
+
+  house_number?: string
+  street?: string
+  ward?: string
+  district?: string
+  province?: string
+
   cinemaId?: number
 }
 export interface FilterCinemaParams {
@@ -105,10 +107,12 @@ export interface Cinema {
   id?: number
   name: string
   phone: string
+  description: string
   isActive: boolean
   chainId: number
   createdAt?: string
   updatedAt?: string
+  chain: CinemaChain
   address: Address[]  // <-- Lưu ý đây là mảng
   rooms?: any[]          // nếu muốn preload phòng chiếu
   promotions?: any[]     // nếu muốn preload khuyến mãi
@@ -118,12 +122,13 @@ export interface UpdateCinemaInput {
   chainId: number
   phone?: string
   active?: boolean
+  description?: string
   address?: {  // ← cho phép undefined
     house_number?: string
-    street: string
-    ward: string
-    district: string
-    province: string
+    street?: string
+    ward?: string
+    district?: string
+    province?: string
     fullAddress: string
     latitude: number
     longitude: number
@@ -136,10 +141,10 @@ export interface CreateCinemaInput {
   phone?: string
   address: {  // bắt buộc khi tạo mới
     house_number?: string
-    street: string
-    ward: string
-    district: string
-    province: string
+    street?: string
+    ward?: string
+    district?: string
+    province?: string
     fullAddress: string
     latitude: number
     longitude: number
@@ -157,15 +162,24 @@ export interface CreateRoomInput {
   formatIds: number[]
   vipColMin?: number
   vipColMax?: number
+  hasCoupleSeat: boolean
 }
 
 export interface UpdateRoomInput {
   name?: string
   roomNumber?: number
   capacity?: number
-  row?: string
+
   status?: string
   formatIds?: number[]
+  seat?: {
+    hasCoupleSeat?: boolean
+    row?: string
+    columns?: number,
+    vipColMin?: number,
+    vipColMax?: number,
+  }
+
 }
 export interface Room {
   id: number
@@ -180,7 +194,7 @@ export interface Room {
   formats: Format[]
   createdAt: string
   updatedAt: string
-
+  hasCoupleSeat: boolean
   cinema: Cinema
 }
 export interface SeatType {
@@ -195,6 +209,58 @@ export interface Seat {
   isAvailable: boolean
   SeatType: SeatType
 }
+export interface SeatRow {
+  row: string; // Nhãn row (ví dụ: 'A', 'B')
+  seats: Seat[];
+}
+export type SeatStatus = "AVAILABLE" | "HOLD" | "BOOKED"
+export interface BookingSeat {
+  id: number
+  label: string
+  type: "NORMAL" | "VIP" | "COUPLE"
+  status: SeatStatus
+  isAvailable: boolean
+  heldBy?: string
+  expiredAt?: string
+}
+export interface BookingSeatRow {
+  row: string
+  seats: BookingSeat[]
+}
+export interface HoldSeatRequest {
+  seatIds: number[]
+ 
+}
+
+export interface HoldSeatResponse {
+  heldSeatIds: number[]
+  expiresAt: string
+  sessionId?: string // chỉ có khi guest
+}
+export interface ReleaseSeatRequest {
+  seatIds: number[]
+  heldBy: string
+}
+export type ReleaseSeatResponse = string
+export interface PurchaseSeatsRequest {
+  seatIds: number[];
+  heldBy: string;
+  name: string;
+  phone: string;
+  email: string;
+  discountCode?: string;
+}
+
+export interface PurchaseSeatsResponse {
+  message: string;
+}
+export type SeatsByRowResponse = Record<string, {
+  id: number
+  label: string
+  type: "NORMAL" | "VIP" | "COUPLE"
+  status: SeatStatus
+}[]>
+export type SeatsData = SeatRow[];
 export interface Director {
   id: number
   name: string
@@ -372,11 +438,12 @@ export interface Showtime {
   movieId: number
   roomId: number
   price: number
-  startTime: string
-  endTime: string
-
-  movie: Movie
+  start: string
+  end: string
+  publicCode: string
+  Movie: Movie
   Room: Room
+  format: string
   tickets: Ticket[]
 }
 export type AutoGenerateResponse = {
@@ -429,4 +496,12 @@ export interface UpdateShowtime {
   roomIds: number[];
   start_time: string
   price: number
+}
+export interface MovieWithShowtimes {
+  movie: Movie
+  showtimes: Showtime[]
+}
+export interface MovieWithShowtimesResponse {
+  data: MovieWithShowtimes[]
+  status: string
 }

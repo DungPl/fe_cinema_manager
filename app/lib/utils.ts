@@ -25,3 +25,11 @@ export const handleApiResponse = <T>(res: any): T => {
   const payload = res.data?.data || res.data || res
   return payload
 }
+export function getGuestSessionId() {
+  let id = localStorage.getItem("guestSessionId")
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem("guestSessionId", id)
+  }
+  return id
+}

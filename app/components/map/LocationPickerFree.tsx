@@ -1,16 +1,53 @@
 // components/map/LocationPickerFree.tsx
 import { useState, useEffect } from "react"
 import { Loader2, MapPin } from "lucide-react"
+function normalizeVNAddress(input: string) {
+  return input
+    .replace(/^\d+\s*/g, "") // ❌ bỏ số nhà đầu dòng
+    .replace(/\bĐ\.\s*/gi, "Đường ")
+    .replace(/\bP\.\s*/gi, "Phường ")
+    .replace(/\bQ\.\s*/gi, "Quận ")
+    .replace(/\bTP\.\s*/gi, "Thành phố ")
+    .trim()
+}
+
 
 function parseOSMAddress(addr: any) {
   return {
     house_number: addr.house_number || "",
-    street: addr.road || addr.street || addr.pedestrian || "",
-    ward: addr.suburb || addr.neighbourhood || addr.village || addr.hamlet || "",
-    district: addr.city_district || addr.district || addr.county || "",
-    province: addr.city || addr.state || addr.province || addr.region || "",
+
+    street:
+      addr.road ||
+      addr.street ||
+      addr.pedestrian ||
+      addr.path ||
+      "",
+
+    // PHƯỜNG
+    ward:
+      addr.suburb ||
+      addr.neighbourhood ||
+      addr.quarter ||
+      "",
+
+    // QUẬN / HUYỆN
+    district:
+      addr.city_district ||
+      addr.district ||
+      addr.county ||
+      "",
+
+    // TỈNH / THÀNH PHỐ
+    province:
+      addr.city ||
+      addr.town ||
+      addr.state ||
+      addr.province ||
+      addr.region ||
+      "",
   }
 }
+
 
 interface LocationData {
   house_number: string
@@ -38,11 +75,12 @@ export function LocationPickerFree({ onLocationSelect }: Props) {
       setSuggestions([])
       return
     }
+    const normalized = normalizeVNAddress(q)
     setLoading(true)
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          q + ", Vietnam"
+          normalized
         )}&countrycodes=vn&limit=6&addressdetails=1&accept-language=vi`
       )
       const data = await res.json()

@@ -1,6 +1,9 @@
-import type { AutoGenerateResponse, CreateShowtimeBatchInput, FilterShowtimeParams, Showtime, ShowtimeResponse, UpdateShowtime } from "~/lib/api/types";
+import type { AutoGenerateResponse, CreateShowtimeBatchInput, FilterShowtimeParams, HoldSeatRequest, HoldSeatResponse, PurchaseSeatsRequest, PurchaseSeatsResponse, ReleaseSeatRequest, SeatsData, Showtime, ShowtimeResponse, UpdateShowtime } from "~/lib/api/types";
 import { apiClient } from "./client";
-
+interface ApiResponse<T> {
+  status: string;
+  data: T;
+}
 export const getShowtimes = async (
   filters: FilterShowtimeParams
 ): Promise<ShowtimeResponse[]> => {
@@ -30,12 +33,92 @@ export const getShowtimeByCinemaAndDate = async (
   const res = await apiClient.get<Showtime[]>(
     `/showtime/${cinemaId}`,
     {
-      params:  cinemaId,date ,
+      params: cinemaId, date,
     }
   );
 
   return res; // Không còn unknown
 };
+export const getShowtimeByPublicCode = async (code: string): Promise<Showtime> => {
+  const res = await apiClient.get<ApiResponse<Showtime>>(`/lich-chieu/dat-ve/${code}`);
+  return res.data; // Trả về res.data để khớp type Showtime
+};
+interface RawSeat {
+  id: number;
+  label: string;
+  type: "NORMAL" | "VIP" | "COUPLE";
+  status: "AVAILABLE" | "BOOKED" | string; // Thêm status khác nếu cần
+}
+export type SeatsByRowResponse = Record<
+  string,
+  {
+    id: number
+    label: string
+    type: "NORMAL" | "VIP" | "COUPLE"
+    status: "AVAILABLE" | "HOLD" | "BOOKED"
+  }[]
+>
+
+export interface ApiSuccess<T> {
+  status: "success"
+  data: T
+}
+
+export async function getSeatsByShowtime(code: string) {
+  return apiClient.get<ApiSuccess<SeatsByRowResponse>>(
+    `/lich-chieu/${code}/ghe`
+  )
+}
+
+function getPriceModifier(type: string): number {
+  switch (type) {
+    case "NORMAL": return 1;
+    case "VIP": return 1.5;
+    case "COUPLE": return 2;
+    default: return 1;
+  }
+}
+import { getGuestSessionId } from "~/lib/utils"
+
+export const holdSeats = async (
+  code: string,
+  payload: HoldSeatRequest
+): Promise<HoldSeatResponse> => {
+  const guestSessionId = getGuestSessionId()
+
+  const res = await apiClient.post<ApiResponse<HoldSeatResponse>>(
+    `/lich-chieu/${code}/giu-ghe`,
+    {
+      seatIds: payload.seatIds,
+      guestSessionId,
+    }
+  )
+
+  return res.data
+}
+
+export const releaseSeats = async (
+  code: string,
+  payload: ReleaseSeatRequest
+): Promise<void> => {
+  await apiClient.post(
+    `/lich-chieu/${code}/tra-ghe`,
+    payload
+  )
+}
+export const purchaseSeats = async (
+  code: string,
+  request: PurchaseSeatsRequest
+): Promise<PurchaseSeatsResponse> => {
+  const res = await apiClient.post<ApiResponse<PurchaseSeatsResponse>>(
+    `/lich-chieu/${code}/thanh-toan`,
+    request
+  )
+
+  return res.data
+}
+
+
 export const createShowtimeBatch = async (
   data: CreateShowtimeBatchInput
 ): Promise<AutoGenerateResponse> => {

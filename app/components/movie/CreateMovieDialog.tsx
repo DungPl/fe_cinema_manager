@@ -27,6 +27,93 @@ interface CreateMovieDialogProps {
 }
 
 const AGE_OPTIONS = ["P", "K", "T13", "T16", "T18"] as const
+const GENRE_OPTIONS = [
+  "Action",
+  "Comedy",
+  "Family",
+  "Drama",
+  "Horror",
+  "Romance",
+  "Sci-Fi",
+  "Animation",
+  "Adventure",
+  "Thriller",
+] as const
+
+type Genre = typeof GENRE_OPTIONS[number] | string // Cho phép thêm genre tùy chỉnh
+
+function GenreMultiSelect({
+  value,
+  onChange,
+}: {
+  value: Genre[]
+  onChange: (genres: Genre[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  const toggleGenre = (genre: Genre) => {
+    if (value.includes(genre)) {
+      onChange(value.filter(g => g !== genre))
+    } else {
+      onChange([...value, genre])
+    }
+  }
+
+  return (
+    <div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            {value.length > 0
+              ? `${value.length} thể loại được chọn`
+              : "Chọn thể loại"}
+            <ChevronsUpDown className="h-4 w-4 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+
+        <PopoverContent className="w-full p-0">
+          <Command>
+            <CommandGroup>
+              {GENRE_OPTIONS.map(genre => {
+                const selected = value.includes(genre)
+                return (
+                  <CommandItem
+                    key={genre}
+                    onSelect={() => toggleGenre(genre)}
+                  >
+                    <Check
+                      className={`mr-2 h-4 w-4 ${
+                        selected ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                    {genre}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {value.map(g => (
+            <Badge key={g} variant="secondary">
+              {g}
+              <button
+                type="button"
+                className="ml-2"
+                onClick={() => onChange(value.filter(x => x !== g))}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Component mới cho multi-select Formats (tương tự ActorMultiCombobox)
 function FormatMultiCombobox({ value, onChange }: { value: Format[]; onChange: (formats: Format[]) => void }) {
@@ -105,7 +192,7 @@ export function CreateMovieDialog({ open, onOpenChange, onSave, onSuccess }: Cre
     const [selectedDirector, setSelectedDirector] = useState<Director | null>(null)
     const [selectedActors, setSelectedActors] = useState<Actor[]>([])
     const [selectedFormats, setSelectedFormats] = useState<Format[]>([]) // Mới: cho formats
-    const [genres, setGenres] = useState<string[]>([]) // Mới: multi genres
+    const [genres, setGenres] = useState<Genre[]>([]) // Thêm state cho genres
     const [newGenre, setNewGenre] = useState("") // Để thêm genre mới
 
     useEffect(() => {
@@ -114,20 +201,17 @@ export function CreateMovieDialog({ open, onOpenChange, onSave, onSuccess }: Cre
             setSelectedDirector(null)
             setSelectedActors([])
             setSelectedFormats([])
-            setGenres([])
+            setGenres([]) // Reset genres
             setNewGenre("")
         }
     }, [open])
 
     const addGenre = () => {
-        if (newGenre.trim() && !genres.includes(newGenre.trim())) {
-            setGenres([...genres, newGenre.trim()])
+        const trimmed = newGenre.trim()
+        if (trimmed && !genres.includes(trimmed)) {
+            setGenres([...genres, trimmed])
             setNewGenre("")
         }
-    }
-
-    const removeGenre = (genre: string) => {
-        setGenres(genres.filter(g => g !== genre))
     }
 
     const handleSubmit = async () => {
@@ -178,7 +262,8 @@ export function CreateMovieDialog({ open, onOpenChange, onSave, onSuccess }: Cre
                         {/* Thể loại */}
                         <div>
                             <Label>Thể loại <span className="text-red-500">*</span></Label>
-                            <div className="flex gap-2">
+                            <GenreMultiSelect value={genres} onChange={setGenres} />
+                            {/* <div className="flex gap-2 mt-2">
                                 <Input
                                     value={newGenre}
                                     onChange={e => setNewGenre(e.target.value)}
@@ -186,19 +271,19 @@ export function CreateMovieDialog({ open, onOpenChange, onSave, onSuccess }: Cre
                                     onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addGenre())}
                                 />
                                 <Button type="button" onClick={addGenre}>Thêm</Button>
-                            </div>
-                            {genres.length > 0 && (
+                            </div> */}
+                            {/* {genres.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {genres.map(g => (
                                         <Badge key={g} variant="secondary">
                                             {g}
-                                            <button type="button" className="ml-2" onClick={() => removeGenre(g)}>
+                                            <button type="button" className="ml-2" onClick={() => setGenres(genres.filter(x => x !== g))}>
                                                 <X className="h-3 w-3" />
                                             </button>
                                         </Badge>
                                     ))}
                                 </div>
-                            )}
+                            )} */}
                         </div>
                     </div>
 

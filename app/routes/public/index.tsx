@@ -1,29 +1,82 @@
-// app/routes/(public)/index.tsx
-import { redirect } from "react-router"
+import { useEffect, useState } from "react"
+import { Button } from "~/components/ui/button"
+import { Card, CardContent } from "~/components/ui/card"
+import { CinemaDialog } from "~/components/layouts/customer/CinemaDialog"
+import type { Cinema } from "~/lib/api/types"
+import { getCinemas } from "~/lib/api/cinemaApi"
+import { Film, Ticket, MapPin } from "lucide-react"
 
-export function loader() {
-  return { message: "Welcome to Cinema Manager" }
-}({})
+export default function HomePage() {
+  const [openCinema, setOpenCinema] = useState(false)
+  const [cinemas, setCinemas] = useState<Cinema[]>([])
+  const [selectedCinema, setSelectedCinema] = useState<Cinema | null>(null)
 
-export default function Home() {
+  useEffect(() => {
+    getCinemas({ limit: 999 }).then(res => {
+      setCinemas(res.rows)
+    })
+  }, [])
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 p-6">
-      <div className="text-center space-y-6 max-w-2xl">
-        <h1 className="text-6xl font-bold bg-gradient-to-r from-indigo-600 to-pink-600 bg-clip-text text-transparent">
-          Cinema Manager
-        </h1>
-        <p className="text-xl text-gray-600 dark:text-gray-300">
-          Quản lý rạp chiếu phim hiện đại, dễ dàng, hiệu quả.
-        </p>
-        <div className="flex gap-4 justify-center">
-          <button className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
-            Bắt đầu ngay
-          </button>
-          <button className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-            Xem demo
-          </button>
+    <div className="space-y-12">
+      {/* Hero */}
+      <section className="relative h-[420px] bg-linear-to-r from-black to-zinc-800 text-white rounded-2xl overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/banner-cinema.jpg')] bg-cover bg-center opacity-40" />
+        <div className="relative z-10 flex h-full flex-col justify-center px-10 max-w-4xl">
+          <h1 className="text-4xl font-bold mb-4">Đặt vé xem phim nhanh chóng</h1>
+          <p className="text-lg mb-6 text-zinc-200">
+            Chọn rạp – chọn phim – chọn ghế chỉ trong vài bước
+          </p>
+          <div className="flex gap-4">
+            <Button size="lg" onClick={() => setOpenCinema(true)}>
+              <Ticket className="mr-2 h-5 w-5" /> Đặt vé ngay
+            </Button>
+            <Button size="lg" variant="secondary">
+              <Film className="mr-2 h-5 w-5" /> Phim đang chiếu
+            </Button>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Quick booking */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="cursor-pointer hover:shadow-lg" onClick={() => setOpenCinema(true)}>
+          <CardContent className="p-6 space-y-2">
+            <MapPin className="h-6 w-6 text-primary" />
+            <h3 className="font-semibold text-lg">Chọn rạp</h3>
+            <p className="text-sm text-muted-foreground">
+              {selectedCinema ? selectedCinema.name : "Chọn rạp gần bạn"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-lg">
+          <CardContent className="p-6 space-y-2">
+            <Film className="h-6 w-6 text-primary" />
+            <h3 className="font-semibold text-lg">Chọn phim</h3>
+            <p className="text-sm text-muted-foreground">Phim đang chiếu & sắp chiếu</p>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-lg">
+          <CardContent className="p-6 space-y-2">
+            <Ticket className="h-6 w-6 text-primary" />
+            <h3 className="font-semibold text-lg">Chọn suất</h3>
+            <p className="text-sm text-muted-foreground">Ngày giờ & ghế ngồi</p>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Cinema dialog */}
+      <CinemaDialog
+        open={openCinema}
+        onOpenChange={setOpenCinema}
+        cinemas={cinemas}
+        onSelect={(cinema) => {
+          setSelectedCinema(cinema)
+          setOpenCinema(false)
+        }}
+      />
     </div>
   )
 }

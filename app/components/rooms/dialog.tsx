@@ -47,6 +47,7 @@ const formSchema = z.object({
   formatIds: z.array(z.number()).min(1, "Chọn ít nhất 1 định dạng"),
   vipStartCol: z.number().int().min(1).optional(),
   vipEndCol: z.number().int().optional(),
+  hasCoupleSeat: z.boolean(),
 })
   .refine((data) => {
     const limit = roomLimits[data.type];
@@ -93,6 +94,7 @@ export function RoomDialog({
       formatIds: room?.formats?.map((f) => f.id) || [],
       vipStartCol: 3,
       vipEndCol: 12,
+      hasCoupleSeat: false,
     },
   });
 
@@ -101,10 +103,11 @@ export function RoomDialog({
   const columns = useWatch({ control: form.control, name: "columns" });
   const vipStart = useWatch({ control: form.control, name: "vipStartCol" }) || 3;
   const vipEnd = useWatch({ control: form.control, name: "vipEndCol" }) || 12;
+  const hasCoupleSeat = useWatch({ control: form.control, name: "hasCoupleSeat" });
 
   const limit = roomLimits[type];
 
-  // DÙNG ĐÚNG room.row từ DB khi edit và có booked seats, fallback khi tạo mới hoặc edit mà không có booked seats
+  // DÙNG ĐÚNG room.row từ DB khi edit và có booked seats, fallback khi create mới hoặc edit mà không có booked seats
   const rowLabels = (isEdit && hasBookedSeats && room?.row)
     ? room.row.split("")
     : Array.from({ length: rows }, (_, i) => String.fromCharCode(65 + i));
@@ -147,6 +150,7 @@ export function RoomDialog({
         formatIds: room.formats?.map((f) => f.id) || [],
         vipStartCol,
         vipEndCol,
+        hasCoupleSeat: room.hasCoupleSeat || false,
       });
     }
   }, [isEdit, room, open, form]);
@@ -171,6 +175,13 @@ export function RoomDialog({
     }
   }, [type, form, limit]);
 
+  // Gợi ý tăng rows nếu toggle hasCoupleSeat true và rows <10 (để có K)
+  useEffect(() => {
+    if (hasCoupleSeat && rows < 11 && !isEdit) {
+      toast.info("Để thêm hàng K cho ghế đôi, hãy tăng số hàng lên ít nhất 11");
+    }
+  }, [hasCoupleSeat, rows, isEdit]);
+
   const onSubmit = async (data: FormValues) => {
     try {
       const payload: any = {
@@ -186,6 +197,23 @@ export function RoomDialog({
       if (!isEdit || !hasBookedSeats) {
         payload.vipColMin = data.vipStartCol;
         payload.vipColMax = data.vipEndCol;
+      }
+
+      // Xử lý hasCoupleSeat dựa trên mode để dùng chung code, nhưng gửi đúng format backend
+      if (!isEdit) {
+        // Create: flat hasCoupleSeat
+        payload.hasCoupleSeat = data.hasCoupleSeat;
+      } else {
+        // Edit: nest trong seat
+        payload.seat = {
+          row: rowLabels.join(""),
+          columns: data.columns,
+          hasCoupleSeat: data.hasCoupleSeat,
+        };
+        if (!isEdit || !hasBookedSeats) {
+          payload.seat.vipColMin = data.vipStartCol;
+          payload.seat.vipColMax = data.vipEndCol;
+        }
       }
 
       if (isEdit) {
@@ -204,7 +232,7 @@ export function RoomDialog({
   };
 
   return (
-    
+
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -325,7 +353,23 @@ export function RoomDialog({
 
                 </div>
 
-
+                {/* Ghế couple */}
+                <FormField
+                  control={form.control}
+                  name="hasCoupleSeat"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isEdit && hasBookedSeats}
+                        />
+                      </FormControl>
+                      <FormLabel>Thêm hàng ghế đôi ở cuối</FormLabel>
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
@@ -367,13 +411,13 @@ export function RoomDialog({
 
                   {/* TOÀN BỘ RẠP CHIẾU PHIM - ĐẸP NHƯ THẬT */}
                   <div className="mx-auto max-w-full p-4">
-                    <div className="relative rounded-3xl overflow-hidden bg-gradient-to-b from-black to-gray-900 shadow-2xl ring-2 ring-cyan-500/20">
+                    <div className="relative rounded-3xl overflow-hidden bg-linear-to-b from-black to-gray-900 shadow-2xl ring-2 ring-cyan-500/20">
                       {/* MÀN HÌNH */}
-                      <div className="relative h-32 bg-gradient-to-b from-black via-gray-900 to-gray-800 flex items-center justify-center border-t-4 border-t-cyan-500 shadow-2xl">
+                      <div className="relative h-32 bg-linear-to-b from-black via-gray-900 to-gray-800 flex items-center justify-center border-t-4 border-t-cyan-500 shadow-2xl">
                         <span className="text-white text-2xl font-extrabold tracking-widest drop-shadow-2xl">
                           MÀN HÌNH
                         </span>
-                        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-cyan-500/30 to-transparent blur-3xl"></div>
+                        <div className="absolute bottom-0 left-0 right-0 h-24 bg-linear-to-b from-cyan-500/30 to-transparent blur-3xl"></div>
                       </div>
 
                       {/* NỀN RẠP + GHẾ */}
@@ -444,7 +488,7 @@ export function RoomDialog({
                                 /* CHẾ ĐỘ TẠO MỚI */
                                 rowLabels.map((row) => {
                                   const isLastRow = row === lastRow;
-                                  const colCount = isLastRow ? lastRowCols : columns;
+                                  const colCount = isLastRow && hasCoupleSeat ? lastRowCols : columns;
                                   const isVipRow = row >= "D" && row <= lastVipRow;
 
                                   return (
@@ -463,7 +507,7 @@ export function RoomDialog({
                                           (col) => {
                                             const isVip =
                                               isVipRow && col >= vipStart && col <= vipEnd;
-                                            const isCouple = isLastRow;
+                                            const isCouple = isLastRow && hasCoupleSeat;
 
                                             return (
                                               <div

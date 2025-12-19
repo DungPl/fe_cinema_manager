@@ -2,7 +2,21 @@
 import type { RouteConfig } from "@react-router/dev/routes"
 export default [
   // Public
-  { path: "/", file: "routes/public/index.tsx" },
+  {
+    path: "/",
+    file: "routes/public/layout.tsx",
+    children: [
+      { path: "", file: "routes/public/index.tsx" },
+      {
+        path: "rap/:slug",
+        file: "routes/public/rap/[slug].tsx", // Thêm file mới cho trang chi tiết rạp
+      },
+      {
+        path: "dat-ve/:code",
+        file: "routes/public/dat-ve/[code].tsx", // Thêm file mới cho trang chi tiết rạp
+      },
+    ]
+  },
 
   // Auth
   { path: "/login", file: "routes/authen/login.tsx" },
@@ -22,25 +36,25 @@ export default [
         path: "cinemas",
         file: "routes/admin/cinemas/index.tsx",
       },
-       {
+      {
         path: "cinemas/:cinemaId/rooms",
         file: "routes/admin/cinemas/[cinemaId]/rooms.tsx"
       },
       {
-        path:"movie",
-        file:"routes/admin/movie/index.tsx"
+        path: "movie",
+        file: "routes/admin/movie/index.tsx"
       },
       {
-        path:"movie/actors",
-        file:"routes/admin/movie/actors.tsx"
+        path: "movie/actors",
+        file: "routes/admin/movie/actors.tsx"
       },
       {
-        path:"movie/directors",
-        file:"routes/admin/movie/directors.tsx"
+        path: "movie/directors",
+        file: "routes/admin/movie/directors.tsx"
       },
       {
-        path:"showtime",
-        file:"routes/admin/showtime/index.tsx"
+        path: "showtime",
+        file: "routes/admin/showtime/index.tsx"
       }
     ],
   },

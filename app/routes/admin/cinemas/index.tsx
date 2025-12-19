@@ -303,6 +303,9 @@ export default function CinemasPage() {
                                                                 <p className="text-sm text-gray-500">
                                                                     <span className="font-medium text-blue-600">{cinema.roomCount}</span> phòng chiếu • {chain?.name || "Độc lập"}
                                                                 </p>
+                                                                {cinema.description && (
+                                                                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{cinema.description}</p>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </td>

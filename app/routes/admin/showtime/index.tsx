@@ -184,7 +184,7 @@ export default function ScheduleManagement() {
     // Group by room cho timeline
     const rooms = [...new Set(filteredShowtimes.map(s => `${s.room?.name ?? ""} ${s.room?.formats?.length ? `(${s.room.formats[0]?.name})` : ""}`.trim()))]
 
-   function setOpenCreate(open: boolean): void {
+    function setOpenCreate(open: boolean): void {
         setIsCreateDialogOpen(open)
     }
 
@@ -375,166 +375,197 @@ export default function ScheduleManagement() {
                         </div>
                     ) : (
                         <div className="overflow-x-auto rounded-lg border bg-white">
+                            {(() => {
+                                /* ================== CONFIG ================== */
+                                const BASE_HOUR = 8
+                                const HOURS_PER_COL = 2
+                                const COL_WIDTH = 160
+                                const PX_PER_HOUR = COL_WIDTH / HOURS_PER_COL
 
-                            {/* HEADER */}
-                            <div className="grid grid-cols-[220px_repeat(7,160px)] bg-white border-t border-l text-sm">  {/* Adjust to 7 columns for 06:00 to 18:00 to match image */}
-                                <div className="sticky left-0 bg-white border-b border-r p-3 font-semibold z-20">
-                                    Phòng Chiếu
-                                </div>
+                                /* ================== FIND MAX END HOUR ================== */
+                                let maxHour = 24
 
-                                {[
-                                    "06:00", "08:00", "10:00", "12:00",
-                                    "14:00", "16:00", "18:00"
-                                ].map(time => (
-                                    <div
-                                        key={time}
-                                        className="text-center text-gray-500 border-b border-r py-2 font-medium"
-                                    >
-                                        {time}
-                                    </div>
-                                ))}
-                            </div>
+                                filteredShowtimes.forEach(show => {
+                                    const start = new Date(show.start_time)
+                                    const end = new Date(show.end_time)
 
-                            {/* BODY */}
-                            <div className="bg-white border-l">
-                                {rooms.map(roomName => {
-                                    const roomShowtimes = filteredShowtimes.filter(s => {
-                                        const formatted = `${s.room.name} ${s.room.formats?.[0] ? `(` + s.room.formats[0].name + `)` : ""
-                                            }`.trim();
-                                        return formatted === roomName;
-                                    });
+                                    let startHour = start.getHours() + start.getMinutes() / 60
+                                    let endHour = end.getHours() + end.getMinutes() / 60
 
-                                    const room = roomShowtimes[0]?.room;
+                                    // Qua ngày
+                                    if (endHour < startHour) endHour += 24
 
-                                    return (
-                                        <div key={roomName} className="grid grid-cols-[220px_auto] border-t">
+                                    if (endHour > maxHour) maxHour = Math.ceil(endHour)
+                                })
 
-                                            {/* LEFT ROOM INFO */}
-                                            <div className="sticky left-0 bg-white p-3 border-r z-20">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="font-semibold text-gray-900">
-                                                        {room?.name}
-                                                    </div>
+                                /* ================== BUILD TIME HEADER ================== */
+                                const times: string[] = []
+                                for (let h = BASE_HOUR; h <= maxHour; h += HOURS_PER_COL) {
+                                    const labelHour = h % 24
+                                    times.push(`${labelHour.toString().padStart(2, "0")}:00`)
+                                }
 
-                                                    {/* FORMAT BADGE */}
-                                                    {room?.formats?.[0] && (
-                                                        <span
-                                                            className={`
-                        inline-block px-2 py-0.5 text-xs rounded-full text-white
-                        ${room.formats[0].name === "IMAX"
-                                                                    ? "bg-blue-500"
-                                                                    : room.formats[0].name === "VIP"
-                                                                        ? "bg-purple-500"
-                                                                        : "bg-gray-500"
-                                                                }
-                      `}
-                                                        >
-                                                            {room.formats[0].name}
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                {/* CINEMA NAME */}
-                                                <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                                    <MapPin className="w-3 h-3" />
-                                                    {room?.cinema?.name ?? "—"}
-                                                </div>
+                                return (
+                                    <>
+                                        {/* ================= HEADER ================= */}
+                                        <div
+                                            className="grid bg-white border-t border-l text-sm"
+                                            style={{
+                                                gridTemplateColumns: `220px repeat(${times.length}, ${COL_WIDTH}px)`
+                                            }}
+                                        >
+                                            <div className="sticky left-0 bg-white border-b border-r p-3 font-semibold z-20">
+                                                Phòng Chiếu
                                             </div>
 
-                                            {/* TIMELINE RIGHT */}
-                                            <div className="relative border-r h-20">  {/* Fixed height for row consistency */}
-
-                                                {/* BACKGROUND GRID */}
-                                                <div className="grid grid-cols-[repeat(7,160px)]">
-                                                    {[...Array(7)].map((_, i) => (
-                                                        <div key={i} className="border-r h-20 bg-white" />
-                                                    ))}
+                                            {times.map(t => (
+                                                <div
+                                                    key={t}
+                                                    className="text-center text-gray-500 border-b border-r py-2 font-medium"
+                                                >
+                                                    {t}
                                                 </div>
+                                            ))}
+                                        </div>
 
-                                                {/* SHOWTIME BLOCKS */}
-                                                {roomShowtimes.map(show => {
+                                        {/* ================= BODY ================= */}
+                                        <div className="bg-white border-l">
+                                            {rooms.map(roomName => {
+                                                const roomShowtimes = filteredShowtimes.filter(s => {
+                                                    const formatted =
+                                                        `${s.room.name} ${s.room.formats?.[0]
+                                                            ? `(${s.room.formats[0].name})`
+                                                            : ""
+                                                            }`.trim()
+                                                    return formatted === roomName
+                                                })
 
-                                                    const start = new Date(show.start_time);
-                                                    const end = new Date(show.end_time);
+                                                const room = roomShowtimes[0]?.room
 
-                                                    const base = 6; // timeline bắt đầu từ 06:00
-                                                    const pxPerHour = 80; // 160px / 2 hours per column = 80px/hour
+                                                return (
+                                                    <div key={roomName} className="grid grid-cols-[220px_auto] border-t">
+                                                        {/* LEFT */}
+                                                        <div className="sticky left-0 bg-white p-3 border-r z-20">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="font-semibold">{room?.name}</div>
 
-                                                    const startHour = start.getHours() + start.getMinutes() / 60;
-                                                    const endHour = end.getHours() + end.getMinutes() / 60;
-
-                                                    const left = (startHour - base) * pxPerHour;
-                                                    const width = (endHour - startHour) * pxPerHour;
-
-                                                    const booked = getBookedSeats(show);
-                                                    const total = getTotalSeats(show);
-                                                    const fill = Math.round(show.fill_rate);
-
-                                                    // Color logic (giống mẫu B)
-                                                    const bg =
-                                                        fill < 50
-                                                            ? "bg-blue-100 text-blue-800"
-                                                            : fill < 80
-                                                                ? "bg-blue-100 text-blue-800"  // Giữ blue cho <80 để match hình (chỉ pink cho high)
-                                                                : fill < 100
-                                                                    ? "bg-pink-100 text-pink-800"
-                                                                    : "bg-pink-100 text-pink-800";
-
-                                                    return (
-                                                        <div
-                                                            key={show.id}
-                                                            className={`absolute p-2 rounded-md shadow-sm border ${bg} flex flex-col group`}  // Thêm 'group' cho hover
-                                                            style={{
-                                                                left: `${left}px`,
-                                                                width: `${width}px`,
-                                                                top: "15px",  // Adjust vertical position to center
-                                                            }}
-                                                        >
-                                                            <div className="font-medium text-sm whitespace-normal leading-tight">
-                                                                {show.movie.title}
+                                                                {room?.formats?.[0] && (
+                                                                    <span
+                                                                        className={`px-2 py-0.5 text-xs rounded-full text-white
+                              ${room.formats[0].name === "IMAX"
+                                                                                ? "bg-blue-500"
+                                                                                : room.formats[0].name === "VIP"
+                                                                                    ? "bg-purple-500"
+                                                                                    : "bg-gray-500"
+                                                                            }`}
+                                                                    >
+                                                                        {room.formats[0].name}
+                                                                    </span>
+                                                                )}
                                                             </div>
 
-                                                            <div className="text-xs opacity-70 mt-0.5 flex items-center gap-1">
-                                                                ○ {format(new Date(show.start_time), "HH:mm")}  {/* Thay icon bằng ○ để match hình */}
-                                                            </div>
-
-                                                            <div className="text-xs opacity-70">
-                                                                {booked}/{total} ({fill}%)
-                                                            </div>
-                                                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 
-                            flex gap-1 transition-opacity">
-                                                                <button
-                                                                    className="h-5 w-5 rounded bg-white/80 text-xs border border-gray-300 hover:bg-white"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        openEditDialog(show);
-                                                                    }}
-                                                                >
-                                                                    ✏️
-                                                                </button>
-
-                                                                <button
-                                                                    className="h-5 w-5 rounded bg-red-500 text-white text-xs hover:bg-red-600"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleDeleteShowtime(show.id);
-                                                                    }}
-                                                                >
-                                                                    🗑️
-                                                                </button>
+                                                            <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                                                <MapPin className="w-3 h-3" />
+                                                                {room?.cinema?.name ?? "—"}
                                                             </div>
                                                         </div>
 
-                                                    );
-                                                })}
-                                            </div>
+                                                        {/* RIGHT */}
+                                                        <div className="relative border-r h-20">
+                                                            {/* GRID */}
+                                                            <div
+                                                                className="grid"
+                                                                style={{
+                                                                    gridTemplateColumns: `repeat(${times.length}, ${COL_WIDTH}px)`
+                                                                }}
+                                                            >
+                                                                {times.map((_, i) => (
+                                                                    <div key={i} className="border-r h-20 bg-white" />
+                                                                ))}
+                                                            </div>
+
+                                                            {/* SHOWTIME BLOCK */}
+                                                            {roomShowtimes.map(show => {
+                                                                const start = new Date(show.start_time)
+                                                                const end = new Date(show.end_time)
+
+                                                                let startHour =
+                                                                    start.getHours() + start.getMinutes() / 60
+                                                                let endHour =
+                                                                    end.getHours() + end.getMinutes() / 60
+
+                                                                if (endHour < startHour) endHour += 24
+
+                                                                const left = (startHour - BASE_HOUR) * PX_PER_HOUR
+                                                                const width = (endHour - startHour) * PX_PER_HOUR
+
+                                                                const booked = getBookedSeats(show)
+                                                                const total = getTotalSeats(show)
+                                                                const fill = Math.round(
+                                                                    show.fill_rate ?? (booked / total) * 100
+                                                                )
+
+                                                                const bg =
+                                                                    fill < 80
+                                                                        ? "bg-blue-100 text-blue-800"
+                                                                        : "bg-pink-100 text-pink-800"
+
+                                                                return (
+                                                                    <div
+                                                                        key={show.id}
+                                                                        className={`absolute p-2 rounded-md border shadow-sm ${bg} group`}
+                                                                        style={{
+                                                                            left,
+                                                                            width,
+                                                                            top: 15
+                                                                        }}
+                                                                    >
+                                                                        <div className="text-sm font-medium leading-tight">
+                                                                            {show.movie.title}
+                                                                        </div>
+                                                                        <div className="text-xs opacity-70">
+                                                                            {format(start, "HH:mm")} - {format(end, "HH:mm")}
+                                                                        </div>
+                                                                        <div className="text-xs opacity-70">
+                                                                            {booked}/{total} ({fill}%)
+                                                                        </div>
+                                                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 
+                            flex gap-1 transition-opacity">
+                                                                            <button
+                                                                                className="h-5 w-5 rounded bg-white/80 text-xs border border-gray-300 hover:bg-white"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    openEditDialog(show);
+                                                                                }}
+                                                                            >
+                                                                                ✏️
+                                                                            </button>
+
+                                                                            <button
+                                                                                className="h-5 w-5 rounded bg-red-500 text-white text-xs hover:bg-red-600"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleDeleteShowtime(show.id);
+                                                                                }}
+                                                                            >
+                                                                                🗑️
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                    </>
+                                )
+                            })()}
                         </div>
                     )}
                 </TabsContent>
+
 
 
             </Tabs>
@@ -542,8 +573,8 @@ export default function ScheduleManagement() {
                 selectedDate={selectedDate}
                 refreshShowtimes={refreshShowtimes}
                 open={isCreateDialogOpen}
-                onOpenChange={setIsCreateDialogOpen} 
-                />
+                onOpenChange={setIsCreateDialogOpen}
+            />
 
             {/* Dialog sửa (mở khi editingShowtime != null) */}
             {editingShowtime && (
@@ -553,7 +584,7 @@ export default function ScheduleManagement() {
                     editingShowtime={editingShowtime}
                     open={true}
                     onOpenChange={() => setEditingShowtime(null)}
-                    onClose={() => setOpenEdit(false)}                />
+                    onClose={() => setOpenEdit(false)} />
             )}
         </div>
     )

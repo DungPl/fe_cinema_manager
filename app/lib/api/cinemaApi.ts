@@ -2,7 +2,7 @@ import type { AxiosResponse } from "axios"
 import { toBoolean } from "../utils"
 import { apiClient } from "./client"
 
-import type { ApiResponse, Cinema, CinemaChain, CinemaListResponse, CreateCinemaInput, FilterCinemaParams, UpdateCinemaInput } from "./types"
+import type { ApiResponse, Cinema, CinemaChain, CinemaListResponse, CreateCinemaInput, FilterCinemaParams, MovieWithShowtimes, MovieWithShowtimesResponse, UpdateCinemaInput } from "./types"
 
 // export const getCinemas = async (): Promise<Cinema[]> => {
 //   const res = await apiClient.get<{
@@ -31,6 +31,37 @@ export const getCinemaChains = async (): Promise<CinemaChain[]> => {
     data: { rows: CinemaChain[]; total?: number }
   }>("/chain/")
   return res.data.rows || []
+}
+export const getCinemaByProvince = async (params: {
+  page?: number
+  limit?: number
+  searchKey?: string
+  province: string
+}): Promise<{ rows: Cinema[]; total?: number }> => {
+  const res = await apiClient.get<ApiResponse<Cinema>>(
+    "/rap/tinh",
+    {
+      params
+    }
+  )
+
+  return res.data
+}
+
+export const getCinemaProvinces = async (): Promise<string[]> => {
+  const res = await apiClient.get<ApiResponse<string>>("/rap/dia-chi")
+  return res.data.rows
+}
+export const getCinemaDetail = (slug: string) =>
+  apiClient.get<ApiResponse<Cinema>>(`/rap/${slug}`)
+
+export const getShowtimeByCinema = async (slug: string, date?: string) => {
+  const res = await apiClient.get<MovieWithShowtimesResponse>(
+    `/rap/${slug}/lich-chieu`,
+    { date:  date  }
+  )
+
+  return res.data ?? []
 }
 
 export const createCinema = async (data: CreateCinemaInput) => {

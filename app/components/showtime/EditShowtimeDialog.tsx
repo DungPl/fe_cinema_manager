@@ -27,17 +27,29 @@ import { getMovieById, getMovies } from "~/lib/api/movieApi"
 import { getCinemas } from "~/lib/api/cinemaApi"
 import { getRoomsByCinemaId } from "~/lib/api/roomApi"
 import { updateShowtime } from "~/lib/api/showtimeApi"  // Giả sử có API update single showtime
+import { getShowtimeByCinemaAndDate } from "~/lib/api/showtimeApi"  // Thêm API để fetch existing showtimes
 import type { Movie, Cinema, Room, ShowtimeResponse } from "~/lib/api/types"
 import { Calendar } from "../ui/calendar"
 import { Separator } from "~/components/ui/separator" // Sửa import
+
+// Giả sử các helper functions (định nghĩa ở file utils hoặc tương tự)
+const formatDate = (date: Date, fmt: string) => format(date, fmt);  // Wrapper đơn giản
+const parseTimeOnDate = (date: Date, timeStr: string) => {
+    const [hh, mm] = timeStr.split(":").map(Number);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hh, mm, 0);
+};
+const toLocalDate = (dateStr: string) => new Date(dateStr);  // Giả sử convert timezone nếu cần
+const isOverlap = (start1: Date, end1: Date, start2: Date, end2: Date) => {
+    return start1 < end2 && start2 < end1;
+};
 
 type EditShowtimeDialogProps = {
     open?: boolean
     selectedDate?: Date // có thể undefined
     refreshShowtimes: () => Promise<void>
     onClose: () => void
-    editingShowtime: ShowtimeResponse 
-     onOpenChange: (open: boolean) => void // Bắt buộc cho edit
+    editingShowtime: ShowtimeResponse
+    onOpenChange: (open: boolean) => void // Bắt buộc cho edit
 }
 
 // Schema validation - Adjust cho single edit
@@ -69,10 +81,23 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
     const [selectedRoom, setSelectedRoom] = useState<string>(editingShowtime.room.id.toString() || "")
     const [selectedFormat, setSelectedFormat] = useState<string>(editingShowtime.room.formats?.[0]?.name || "2D")
     const [previewShowtimes, setPreviewShowtimes] = useState<any[]>([]) // Chỉ 1 cho single
+    const [skippedPreviews, setSkippedPreviews] = useState<any[]>([]) // Để hiển thị conflict
+    const [existingShowtimes, setExistingShowtimes] = useState<any[]>([]) // Existing cho ngày
     const [movieDuration, setMovieDuration] = useState<number>(editingShowtime.movie.duration || 120)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(editingShowtime.movie || null)
     const [isFetchingMovie, setIsFetchingMovie] = useState(false);
+
+    // Tạo timeOptions
+    const timeOptions: string[] = [];
+    for (let h = 8; h <= 23; h++) {
+        for (let m of [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]) {
+            if (h === 23 && m > 30) continue;
+            const hh = h.toString().padStart(2, "0");
+            const mm = m.toString().padStart(2, "0");
+            timeOptions.push(`${hh}:${mm}`);
+        }
+    }
 
     // Fetch data - Tương tự, nhưng preload
     useEffect(() => {
@@ -148,35 +173,200 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
     const { watch } = form
     // Thêm vào useEffect cho watch để generate previews với logic backend-like - Nhưng cho single, đơn giản hơn
     useEffect(() => {
-        const subscription = watch((value) => {
+        const subscription = watch(async (value) => {
             if (value.movieId && value.roomId && value.format && value.startTime && value.startDate && movieDuration > 0) {
-                console.log("Generating previews with values:", value, "duration:", movieDuration);
-                const previews: any[] = [];
-                const startTimeStr = `${format(value.startDate, "yyyy-MM-dd")}T${value.startTime}:00`;
-                const startTime = new Date(startTimeStr);
-                const endTime = addMinutes(startTime, movieDuration);
+                try {
+                    // --- FETCH EXISTING for the single date ---
+                    const dateStr = formatDate(value.startDate, "yyyy-MM-dd");
+                    const showtimes = await getShowtimeByCinemaAndDate(Number(value.cinemaId), dateStr) as any[];
+                    const allExisting = Array.isArray(showtimes) ? showtimes : [];
+                    setExistingShowtimes(allExisting);
 
-                const room = rooms.find(r => r.id === Number(value.roomId));
+                    // --- PREPARE ---
+                    const previewDate = new Date(value.startDate);
+                    const dateKey = formatDate(previewDate, "yyyy-MM-dd");
 
-                previews.push({
-                    date: format(value.startDate, "dd/MM/yyyy"),
-                    room: room?.name || "",
-                    format: value.format,
-                    startTime: format(startTime, "HH:mm"),
-                    endTime: format(endTime, "HH:mm"),
-                });
+                    const previews: any[] = [];
+                    const skippedPreviews: any[] = [];
 
-                console.log("Generated previews:", previews);
-                setPreviewShowtimes(previews);
+                    const formatConfigs: { [key: string]: { offsetMinutes: number; maxPerDay: number; maxRooms: number } } = {
+                        "2D": { offsetMinutes: 10, maxPerDay: 8, maxRooms: Infinity },
+                        "3D": { offsetMinutes: 10, maxPerDay: 6, maxRooms: Infinity },
+                        "IMAX": { offsetMinutes: 10, maxPerDay: 4, maxRooms: 2 },
+                        "4DX": { offsetMinutes: 10, maxPerDay: 4, maxRooms: 2 },
+                    };
+
+                    const minGapBetweenRooms = 10 * 60 * 1000;
+                    const breakStartHour = 11;
+                    const breakEndHour = 14;
+                    const DEBUG = true;
+                    // build map of existing by room for this date
+                    const existingByRoom = new Map<number, any[]>();
+                    for (const s of allExisting) {
+                        const sDate = s.start.split('T')[0];
+                        if (sDate !== dateKey) continue;
+                        const rid = Number(s.roomId);
+                        if (!existingByRoom.has(rid)) existingByRoom.set(rid, []);
+                        existingByRoom.get(rid)!.push(s);
+                    }
+
+                    const dailyCreatedByFormat = { [value.format]: 0 } as Record<string, number>;
+
+                    const roomIdNum = Number(value.roomId);
+                    const room = rooms.find(r => r.id === roomIdNum);
+                    if (!room) return;
+
+                    const format = value.format;
+                    if (!format || !room.formats?.some((f: any) => f.name === format)) return;
+
+                    const config = formatConfigs[format];
+                    if (!config) return;
+
+                    // base startTime from slot on previewDate
+                    let startTime = parseTimeOnDate(previewDate, value.startTime);
+
+                    // lunch break shift (nếu áp dụng cho single, có thể bỏ nếu không cần)
+                    if (startTime.getHours() >= breakStartHour && startTime.getHours() < breakEndHour) {
+                        // Ví dụ: shift to after break
+                        // startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), breakEndHour, 0, 0);
+                    }
+
+                    // Vì single room, idx = 0, không cần offset
+                    // Nhưng nếu muốn apply lunch gap, có thể adjust
+
+                    // normalize
+                    startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), startTime.getHours(), startTime.getMinutes(), 0);
+
+                    if (formatDate(startTime, "yyyy-MM-dd") !== dateKey) {
+                        skippedPreviews.push({
+                            date: formatDate(previewDate, "dd/MM/yyyy"),
+                            room: room?.name || "",
+                            format,
+                            startTime: formatDate(startTime, "HH:mm"),
+                            endTime: "N/A",
+                            reason: "Vượt quá giờ chiếu cho phép",
+                            conflicts: []
+                        });
+                        setPreviewShowtimes(previews);
+                        setSkippedPreviews(skippedPreviews);
+                        return;
+                    }
+
+                    const endTime = addMinutes(startTime, movieDuration);
+
+                    // dynamic min gap in same room
+                    const hourAfterShift = startTime.getHours();
+                    const min_gap_in_room_minutes = (hourAfterShift >= breakStartHour && hourAfterShift < breakEndHour) ? 30 : 10;
+                    const min_gap_in_room_ms = min_gap_in_room_minutes * 60 * 1000;
+
+                    // IMAX late limit (nếu áp dụng)
+                    if (format === "IMAX" && startTime.getHours() >= 22) {
+                        // Check existing + this one, nhưng vì single và edit, có thể count existing
+                        const imaxLateExisting = allExisting.filter(s => s.format === "IMAX" && new Date(s.start).getHours() >= 22 && s.id !== editingShowtime.id).length;
+                        if (imaxLateExisting >= 1) {
+                            skippedPreviews.push({
+                                date: formatDate(previewDate, "dd/MM/yyyy"),
+                                room: room?.name || "",
+                                format,
+                                startTime: formatDate(startTime, "HH:mm"),
+                                endTime: formatDate(endTime, "HH:mm"),
+                                reason: "Vượt quá 1 suất IMAX sau 22:00",
+                                conflicts: []
+                            });
+                            setPreviewShowtimes(previews);
+                            setSkippedPreviews(skippedPreviews);
+                            return;
+                        }
+                    }
+
+                    // --- CHECK WITH EXISTING IN SAME ROOM (exclude self) ---
+                    const roomExisting = existingByRoom.get(roomIdNum) ?? [];
+                    let conflictingExisting: any[] = [];
+                    for (const s of roomExisting) {
+                        if (s.id === editingShowtime.id) continue;  // Exclude self
+                        const sStart = toLocalDate(s.start);
+                        const sEnd = toLocalDate(s.end);
+                        if (isOverlap(startTime, endTime, sStart, sEnd) ||
+                            (endTime <= sStart && (sStart.getTime() - endTime.getTime()) < min_gap_in_room_ms) ||
+                            (sEnd <= startTime && (startTime.getTime() - sEnd.getTime()) < min_gap_in_room_ms)
+                        ) {
+                            conflictingExisting.push(s);
+                        }
+                    }
+
+                    if (conflictingExisting.length > 0) {
+                        if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
+                        skippedPreviews.push({
+                            date: formatDate(previewDate, "dd/MM/yyyy"),
+                            room: room.name,
+                            format,
+                            startTime: formatDate(startTime, "HH:mm"),
+                            endTime: formatDate(endTime, "HH:mm"),
+                            reason: conflictingExisting.some((s: any) => isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))) ? "Trùng lịch phòng (tồn tại)" : "Khoảng cách suất chiếu trong phòng quá gần (tồn tại)",
+                            conflicts: conflictingExisting.map((c: any) => {
+                                const title = c.Movie?.title || "Phim khác";
+                                const start = formatDate(toLocalDate(c.start), "HH:mm");
+                                const end = formatDate(toLocalDate(c.end), "HH:mm");
+                                return `${title} (${start}-${end})`;
+                            })
+                        });
+                        setPreviewShowtimes(previews);
+                        setSkippedPreviews(skippedPreviews);
+                        return;
+                    }
+
+                    // --- NEARBY checks (other rooms) using allExisting ---
+                    const otherExisting = allExisting.filter(s => s.movieId === Number(value.movieId) && Number(s.roomId) !== roomIdNum && s.start.split('T')[0] === dateKey && s.id !== editingShowtime.id);
+                    const nearbyConflictsExisting = otherExisting.filter((s: any) => {
+                        const sStart = toLocalDate(s.start);
+                        return Math.abs(startTime.getTime() - sStart.getTime()) < minGapBetweenRooms;
+                    });
+                    if (nearbyConflictsExisting.length > 0) {
+                        skippedPreviews.push({
+                            date: formatDate(previewDate, "dd/MM/yyyy"),
+                            room: room?.name || "",
+                            format,
+                            startTime: formatDate(startTime, "HH:mm"),
+                            endTime: formatDate(endTime, "HH:mm"),
+                            reason: "Trùng lịch gần phòng khác (tồn tại)",
+                            conflicts: nearbyConflictsExisting.map((c: any) => `${c.Room?.name || "Room " + c.roomId}: ${c.Movie?.title || "Unknown"} (${formatDate(new Date(c.start), "HH:mm")}-${formatDate(new Date(c.end), "HH:mm")})`)
+                        });
+                        setPreviewShowtimes(previews);
+                        setSkippedPreviews(skippedPreviews);
+                        return;
+                    }
+
+                    // OK push
+                    previews.push({
+                        date: formatDate(previewDate, "dd/MM/yyyy"),
+                        room: room?.name || "",
+                        roomId: roomIdNum,
+                        format,
+                        startTime: formatDate(startTime, "HH:mm"),
+                        endTime: formatDate(endTime, "HH:mm"),
+                    });
+
+                    setPreviewShowtimes(previews);
+                    setSkippedPreviews(skippedPreviews);
+                } catch (err) {
+                    console.error("Lỗi preview:", err);
+                }
             } else {
                 setPreviewShowtimes([]);
+                setSkippedPreviews([]);
+                setExistingShowtimes([]);
             }
         });
         return () => subscription.unsubscribe();
-    }, [watch, rooms, movieDuration]);
+    }, [watch, rooms, movieDuration, editingShowtime.id]);
 
     // onSubmit - Update single
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
+        if (skippedPreviews.length > 0) {
+            toast.error("Có xung đột lịch chiếu. Vui lòng kiểm tra preview.");
+            return;
+        }
+
         setIsSubmitting(true)
         try {
             const payload = {
@@ -204,13 +394,14 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
     }
 
     // Provinces unique từ cinemas
-    const provinces = [
-        ...new Set(
+    const provinces: string[] = Array.from(
+        new Set(
             cinemas
                 .map(c => c.address?.[0]?.province)
-                .filter(Boolean)
+                .filter((p): p is string => typeof p === "string")
         )
-    ]
+    )
+
 
     // Cinemas filtered by province
     const filteredCinemas = selectedProvince ? cinemas.filter(c => c.address?.[0]?.province === selectedProvince) : cinemas
@@ -496,16 +687,30 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                                     )}
                                 />
 
-                                {/* START TIME */}
+                                {/* START TIME - Thay bằng Select với timeOptions */}
                                 <FormField
                                     control={form.control}
                                     name="startTime"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Giờ bắt đầu</FormLabel>
-                                            <FormControl>
-                                                <Input type="time" {...field} />
-                                            </FormControl>
+                                            <Select
+                                                onValueChange={field.onChange}
+                                                value={field.value}
+                                            >
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Chọn giờ" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent className="max-h-60 overflow-y-auto">
+                                                    {timeOptions.map((time) => (
+                                                        <SelectItem key={time} value={time}>
+                                                            {time}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -524,12 +729,17 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                                 <FormItem>
                                     <FormLabel>Giá vé</FormLabel>
                                     <FormControl>
-                                        <Input type="number" {...field} onChange={(e) => field.onChange(+e.target.value)} />
+                                        <Input
+                                            type="number"
+                                            {...field}
+                                            onChange={(e) => field.onChange(+e.target.value)}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
+
 
                         {/* PREVIEW - Chỉ 1 dòng cho single */}
                         {previewShowtimes.length > 0 && (
@@ -563,13 +773,48 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                             </div>
                         )}
 
+                        {/* SKIPPED / CONFLICTS */}
+                        {skippedPreviews.length > 0 && (
+                            <div className="border rounded-lg p-4 bg-red-100 max-h-60 overflow-auto mt-4">
+                                <h3 className="font-bold mb-2 text-red-600">
+                                    Xung đột: {skippedPreviews.length} suất bị bỏ qua
+                                </h3>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Ngày</TableHead>
+                                            <TableHead>Phòng</TableHead>
+                                            <TableHead>Format</TableHead>
+                                            <TableHead>Bắt đầu</TableHead>
+                                            <TableHead>Kết thúc</TableHead>
+                                            <TableHead>Lý do</TableHead>
+                                            <TableHead>Xung đột</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {skippedPreviews.map((p, i) => (
+                                            <TableRow key={i}>
+                                                <TableCell>{p.date}</TableCell>
+                                                <TableCell>{p.room}</TableCell>
+                                                <TableCell>{p.format}</TableCell>
+                                                <TableCell>{p.startTime}</TableCell>
+                                                <TableCell>{p.endTime}</TableCell>
+                                                <TableCell>{p.reason}</TableCell>
+                                                <TableCell>{p.conflicts.join(", ")}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+
                         {/* ACTION BUTTONS */}
                         <div className="flex justify-end gap-3 pt-4">
                             <Button variant="outline" type="button" onClick={onClose}>
                                 Hủy
                             </Button>
 
-                            <Button type="submit" disabled={isSubmitting}>
+                            <Button type="submit" disabled={isSubmitting || skippedPreviews.length > 0}>
                                 {isSubmitting ? "Đang sửa..." : "Sửa suất chiếu"}
                             </Button>
                         </div>
@@ -579,4 +824,4 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
             </DialogContent>
         </Dialog>
     )
-} 
+}  

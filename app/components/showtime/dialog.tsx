@@ -167,7 +167,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                 return;
             }
             const movie = await getMovieById(movieIdNum);
-            console.log("Fetched movie:", movie); // Debug
+            //console.log("Fetched movie:", movie); // Debug
             setSelectedMovie(movie);
             setMovieDuration(movie?.duration || 120);
         } catch (err) {
@@ -190,7 +190,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             startDate: selectedDate || new Date(),
             endDate: selectedDate || new Date(),
             timeSlots: [],
-            price: 80000,
+            price: 50000,
         },
     })
 
@@ -243,7 +243,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                     }
                     setExistingShowtimes(allExisting);
 
-                    if (DEBUG) console.log("allExisting loaded:", allExisting.length);
+                    //if (DEBUG) console.log("allExisting loaded:", allExisting.length);
 
                     // --- PREPARE ---
                     let previewDate = new Date(value.startDate);
@@ -265,7 +265,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                     const minGapBetweenRooms = 10 * 60 * 1000;
                     const breakStartHour = 11;
                     const breakEndHour = 14;
-                    const extraBreakTime = 30; // minutes
                     const imaxLateCountPerDay: { [key: string]: number } = {};
 
                     // Precompute ordered room ids (numbers)
@@ -313,10 +312,10 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     let startTime = parseTimeOnDate(previewDate, slot);
 
                                     // lunch break shift
-                                    if (startTime.getHours() >= breakStartHour && startTime.getHours() < breakEndHour) {
-                                        startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), breakEndHour, 0, 0);
-                                        startTime = addMinutes(startTime, extraBreakTime);
-                                    }
+                                    // if (startTime.getHours() >= breakStartHour && startTime.getHours() < breakEndHour) {
+                                    //     startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), breakEndHour, 0, 0);
+                                    //     startTime = addMinutes(startTime, extraBreakTime);
+                                    // }
 
                                     // idx from orderedRoomIds (stable)
                                     const idx = orderedRoomIds.indexOf(roomIdNum);
@@ -324,7 +323,10 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
 
                                     // apply offset
                                     startTime = addMinutes(startTime, idx * offsetMinutes);
-
+                                    if (startTime.getHours() >= 11 && startTime.getHours() <14) {
+                                        const lunchRoomGapMinutes = 20;
+                                        startTime = addMinutes(startTime, idx * lunchRoomGapMinutes);
+                                    }
                                     // normalize date to previewDate (prevent day shift)
                                     startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), startTime.getHours(), startTime.getMinutes(), 0);
 
@@ -362,7 +364,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
 
                                     // --- CHECK WITH EXISTING IN SAME ROOM (use existingByRoom) ---
                                     const roomExisting = existingByRoom.get(roomIdNum) ?? [];
-                                    if (DEBUG) console.log("Checking roomExisting for", roomIdNum, "count:", roomExisting.length);
+                                    //if (DEBUG) console.log("Checking roomExisting for", roomIdNum, "count:", roomExisting.length);
 
                                     let conflictingExisting: any[] = [];
                                     for (const s of roomExisting) {
@@ -378,7 +380,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     }
 
                                     if (conflictingExisting.length > 0) {
-                                        if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
+                                        //if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
                                         skipped++;
                                         skippedPreviews.push({
                                             date: formatDate(previewDate, "dd/MM/yyyy"),
@@ -387,7 +389,12 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             startTime: formatDate(startTime, "HH:mm"),
                                             endTime: formatDate(endTime, "HH:mm"),
                                             reason: conflictingExisting.some((s: any) => isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))) ? "Trùng lịch phòng (tồn tại)" : "Khoảng cách suất chiếu trong phòng quá gần (tồn tại)",
-                                            conflicts: conflictingExisting.map((c: any) => `${c.movie?.title} (${formatDate(new Date(c.start), "HH:mm")}-${formatDate(new Date(c.end), "HH:mm")})`)
+                                            conflicts: conflictingExisting.map((c: any) => {
+                                                const title = c.Movie?.title || "Phim khác";
+                                                const start = formatDate(toLocalDate(c.start), "HH:mm");
+                                                const end = formatDate(toLocalDate(c.end), "HH:mm");
+                                                return `${title} (${start}-${end})`;
+                                            })
                                         });
                                         continue;
                                     }
@@ -408,7 +415,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     }
 
                                     if (conflictingPreviews.length > 0) {
-                                        if (DEBUG) console.log("Conflicting previews:", conflictingPreviews);
+                                        //if (DEBUG) console.log("Conflicting previews:", conflictingPreviews);
                                         skipped++;
                                         skippedPreviews.push({
                                             date: formatDate(previewDate, "dd/MM/yyyy"),
@@ -437,7 +444,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             startTime: formatDate(startTime, "HH:mm"),
                                             endTime: formatDate(endTime, "HH:mm"),
                                             reason: "Trùng lịch gần phòng khác (tồn tại)",
-                                            conflicts: nearbyConflictsExisting.map((c: any) => `${c.room?.name || "Room " + c.roomId}: ${c.movie?.title || "Unknown"} (${formatDate(new Date(c.start), "HH:mm")}-${formatDate(new Date(c.end), "HH:mm")})`)
+                                            conflicts: nearbyConflictsExisting.map((c: any) => `${c.Room?.name || "Room " + c.roomId}: ${c.movie?.title || "Unknown"} (${formatDate(new Date(c.start), "HH:mm")}-${formatDate(new Date(c.end), "HH:mm")})`)
                                         });
                                         continue;
                                     }

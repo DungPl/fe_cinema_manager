@@ -7,11 +7,11 @@ import { LocationPickerFree } from "~/components/map/LocationPickerFree" // Comp
 import { LocationMapPreview } from "~/components/map/LocationMapPreview" // ← thêm dòng này
 import type { Cinema, UpdateCinemaInput, CreateCinemaInput } from "~/lib/api/types"
 interface AddressForm {
-    house_number: string
-    street: string
-    ward: string
-    district: string
-    province: string
+    house_number?: string
+    street?: string
+    ward?: string
+    district?: string
+    province?: string
     fullAddress: string
     latitude: number
     longitude: number
@@ -29,6 +29,7 @@ export function CinemaDialog({ open, onClose, onSubmit, initialData, chains }: P
     const [name, setName] = useState("")
     const [chainId, setChainId] = useState("")
     const [phone, setPhone] = useState("")
+    const [description, setDescription] = useState("")
     const [tab, setTab] = useState<"info" | "address">("info")
 
     const [address, setAddress] = useState<AddressForm>({
@@ -48,6 +49,7 @@ export function CinemaDialog({ open, onClose, onSubmit, initialData, chains }: P
             setName(initialData.name || "")
             setChainId(String(initialData.chainId || ""))
             setPhone(initialData.phone || "")
+            setDescription(initialData.description || "")
             const addr =
                 (initialData as any).address?.[0] ||      // Backend mới trả "address"
                 initialData.address?.[0] ||             // Hỗ trợ backend cũ
@@ -77,6 +79,7 @@ export function CinemaDialog({ open, onClose, onSubmit, initialData, chains }: P
             setName("")
             setChainId("")
             setPhone("")
+            setDescription("")
             setAddress({
                 house_number: "",
                 street: "",
@@ -95,17 +98,19 @@ export function CinemaDialog({ open, onClose, onSubmit, initialData, chains }: P
             name: name || undefined,
             chainId: Number(chainId),
             phone: phone || undefined,
+            description: description || undefined,
             active: initialData?.isActive ?? true,
             // ← GỬI ĐÚNG THEO BACKEND
             address: address.latitude === 0 ? undefined : {
-                house_number: address.house_number || undefined,
-                street: address.street,
-                ward: address.ward,
-                district: address.district,
-                province: address.province,
                 fullAddress: address.fullAddress,
                 latitude: address.latitude,
                 longitude: address.longitude,
+
+                house_number: address.house_number || undefined,
+                street: address.street || undefined,
+                ward: address.ward || undefined,
+                district: address.district || undefined,
+                province: address.province || undefined,
             }
         }
 
@@ -166,7 +171,15 @@ export function CinemaDialog({ open, onClose, onSubmit, initialData, chains }: P
                                 <Label>Số điện thoại (tùy chọn)</Label>
                                 <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0123456789" />
                             </div>
-
+                            <div>
+                                <Label>Mô tả rạp (tùy chọn)</Label>
+                                <textarea
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="Mô tả ngắn về rạp, tiện ích, vị trí..."
+                                    className="w-full px-3 py-2 border rounded-lg min-h-[100px]"
+                                />
+                            </div>
                         </div>
                     )}
 
