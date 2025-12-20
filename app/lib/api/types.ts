@@ -104,7 +104,7 @@ export interface CinemaListResponse {
 export interface Cinema {
   roomCount?: number
 
-  id?: number
+  id: number
   name: string
   phone: string
   description: string
@@ -229,7 +229,7 @@ export interface BookingSeatRow {
 }
 export interface HoldSeatRequest {
   seatIds: number[]
- 
+
 }
 
 export interface HoldSeatResponse {
@@ -456,7 +456,13 @@ export type AutoGenerateResponse = {
     totalRooms: number;
   };
 };
+export type LanguageType =
+  | "VI_SUB"
+  | "VI_DUB"
+  | "EN_SUB"
+  | "EN_DUB"
 
+export type ShowtimeFormat = "2D" | "3D" | "IMAX" | "4DX"
 export interface ShowtimeResponse {
   id: number
   price: number
@@ -464,7 +470,8 @@ export interface ShowtimeResponse {
   room: Room
   start_time: string
   end_time: string
-
+  format: ShowtimeFormat
+  language_type: LanguageType
   fill_rate: number        // tỉ lệ lấp phòng %
   booked_seats: number     // số ghế đã đặt
   total_seats: number      // tổng số ghế
@@ -505,3 +512,21 @@ export interface MovieWithShowtimesResponse {
   data: MovieWithShowtimes[]
   status: string
 }
+export interface LocationResponse {
+  province: string;
+  cinemaCount: number;
+  chains: ChainCount[];
+}
+
+export interface ChainCount {
+  name: string;
+  count: number;
+}
+
+export interface CinemaChainWithCount {
+  id: number;
+  name: string;
+  cinemaCount: number;
+}
+
+export type UserRole = "ADMIN" | "MANAGER" | "MODERATOR";

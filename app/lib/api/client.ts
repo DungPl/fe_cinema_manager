@@ -30,14 +30,18 @@ class ApiClient {
     this.failedQueue = []
   }
 
-  private logout() {
-    if (isBrowser) {
-      toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
-      document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
-      document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
-      window.location.href = "/login"
-    }
+ private logout() {
+  if (isBrowser) {
+    toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
+
+    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
+    document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
+
+    window.dispatchEvent(new Event("auth:logout"))
+    window.location.href = "/login"
   }
+}
+
 
   // Hàm request chính – có xử lý refresh token
   private async request<T>(

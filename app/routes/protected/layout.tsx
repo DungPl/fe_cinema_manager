@@ -1,6 +1,6 @@
 // src/app/routes/(protected)/layout.tsx
 import { Outlet, redirect } from "react-router-dom"
-import { useAuthStore } from "../../stores/authStore"
+import { useAuthStore } from "../../stores/authAccountStore"
 import { Navbar } from "../../components/layouts/Navbar"
 //import { Sidebar } from "../../components/layout/Sidebar"
 import { Footer } from "../../components/layouts/Footer"

@@ -9,7 +9,7 @@ import { Label } from "../../components/ui/label"
 import { Button } from "../../components/ui/button"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../components/ui/card"
 import { User, Lock, Eye, EyeOff, LogIn } from "lucide-react"
-import { useAuthStore } from "../../stores/authStore"
+import { useAuthStore } from "../../stores/authAccountStore"
 
 const loginSchema = z.object({
   username: z.string().min(3, "Tên đăng nhập ít nhất 3 ký tự"),
@@ -43,20 +43,22 @@ export default function Login() {
       }
       const json = await res.json()
       login(json.user)
-      const role = json.user?.role?.toLowerCase()
-      navigate(role === "admin" ? "/admin" : "/")
+      setTimeout(() => {
+        const role = json.user.role.toLowerCase()
+        navigate(role === "admin" ? "/admin" : "/")
+      }, 0)
     } catch (err) {
       setError("Không thể kết nối đến server.")
     }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-blue-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-blue-100 rounded-full">
-              <LogIn className="w-8 h-8 text-blue-600"/>
+              <LogIn className="w-8 h-8 text-blue-600" />
             </div>
           </div>
           <CardTitle className="text-2xl">Đăng nhập</CardTitle>
@@ -70,12 +72,12 @@ export default function Login() {
             <div className="space-y-2">
               <Label htmlFor="username">Tên đăng nhập</Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"/>
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="username"
                   type="text"
                   placeholder="admin123"
-                  className="!pl-10"
+                  className="pl-10!"
                   {...register("username")}
                   disabled={isSubmitting}
                   autoFocus
@@ -87,12 +89,12 @@ export default function Login() {
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"/>
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••"
-                  className="!pl-10 pr-10"
+                  className="pl-10! pr-10"
                   {...register("password")}
                   disabled={isSubmitting}
                 />
@@ -101,7 +103,7 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-3 text-gray-400 hover:text-gray-700"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}

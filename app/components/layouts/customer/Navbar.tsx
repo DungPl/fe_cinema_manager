@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 import { CinemaDialog } from "./CinemaDialog"
 import { getCinemas } from "~/lib/api/cinemaApi"
 import slugify from "slugify"
+import { useAuthStore } from "~/stores/authCustomerStore"
 
 export default function Navbar() {
   const navigate = useNavigate()
@@ -30,6 +31,8 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("")
   const [openCinema, setOpenCinema] = useState(false)
   const [selectedCinema, setSelectedCinema] = useState<any>(null)
+  const user = useAuthStore((s) => s.customer)
+  const logout = useAuthStore((s) => s.logoutCustomer)
 
   const bookings: any[] = [] // demo
 
@@ -129,28 +132,54 @@ export default function Navbar() {
                 <Bell className="w-5 h-5" />
               </Button>
 
+             
               {/* User */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="gap-2 px-2">
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100" />
-                      <AvatarFallback>ND</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate("/profile")}>
-                    Tài khoản
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="text-red-600"
-                    onClick={() => navigate("/login")}
-                  >
-                    Đăng xuất
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="gap-2 px-2">
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage
+                          src={user.avatarUrl || undefined}
+                          alt={user.username}
+                        />
+                        <AvatarFallback>
+                          {(
+                            user.firstname ||
+                            user.username ||
+                            user.email ||
+                            "U"
+                          )
+                            .charAt(0)
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => navigate("/profile")}>
+                      Tài khoản
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      className="text-red-600"
+                      onClick={() => {
+                        logout()
+                        navigate("/login")
+                      }}
+                    >
+                      Đăng xuất
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button onClick={() => navigate("/login")}>
+                  Đăng nhập
+                </Button>
+              )}
+
+
 
             </div>
           </div>

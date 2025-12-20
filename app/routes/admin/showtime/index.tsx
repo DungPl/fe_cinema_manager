@@ -16,7 +16,7 @@ import { AlertTriangle } from "lucide-react"
 // API fetch showtimes và cinemas
 import { deleteShowtime, getShowtimes } from "~/lib/api/showtimeApi"
 import { getCinemas } from "~/lib/api/cinemaApi"
-import type { ShowtimeResponse, Cinema } from "~/lib/api/types"
+import type { ShowtimeResponse, Cinema, LanguageType, ShowtimeFormat } from "~/lib/api/types"
 import { CreateShowtimeDialog } from "~/components/showtime/dialog"
 import { Button } from "~/components/ui/button"
 import React from "react"
@@ -45,6 +45,18 @@ function getTimePosition2h(timeString: string) {
     const index = (total - startHour) / 2;
 
     return Math.max(0, Math.floor(index));
+}
+export const LANGUAGE_LABEL: Record<LanguageType, string> = {
+    VI_SUB: "Phụ đề Việt",
+    VI_DUB: "Lồng tiếng Việt",
+    EN_SUB: "Phụ đề Anh",
+    EN_DUB: "Lồng tiếng Anh",
+}
+export const FORMAT_LABEL: Record<ShowtimeFormat, string> = {
+    "2D": "2D",
+    "3D": "3D",
+    "IMAX": "IMAX",
+    "4DX": "4DX"
 }
 export const getStartTime = (value?: string) => safeFormat(value, "HH:mm");
 export const getEndTime = (value?: string) => safeFormat(value, "HH:mm");
@@ -301,6 +313,8 @@ export default function ScheduleManagement() {
                                     <TableHead>Ngày Chiếu</TableHead>
                                     <TableHead>Giờ Chiếu</TableHead>
                                     <TableHead>Giá Vé</TableHead>
+                                    <TableHead>Định dạng chiếu-Ngôn ngữ</TableHead>
+
                                     <TableHead>Ghế Đã Đặt</TableHead>
                                     <TableHead>Tỷ Lệ</TableHead>
                                     <TableHead>Trạng Thái</TableHead>
@@ -325,6 +339,28 @@ export default function ScheduleManagement() {
                                             <TableCell>{safeFormat(s.start_time, "dd/MM/yyyy")}</TableCell>
                                             <TableCell>{getStartTime(s.start_time)} - {getEndTime(s.end_time)}</TableCell>
                                             <TableCell>{(s.price || 0).toLocaleString("vi-VN")} đ</TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {/* Format */}
+                                                    {s.format && (
+                                                        <Badge variant="outline">
+                                                            {FORMAT_LABEL[s.format]}
+                                                        </Badge>
+                                                    )}
+
+                                                    {/* Language */}
+                                                    {s.language_type && (
+                                                        <Badge variant="secondary">
+                                                            {LANGUAGE_LABEL[s.language_type]}
+                                                        </Badge>
+                                                    )}
+
+                                                    {/* Không có gì */}
+                                                    {!s.format && !s.language_type && "—"}
+                                                </div>
+                                            </TableCell>
+
+
                                             <TableCell>{booked}/{total}</TableCell>
                                             <TableCell className="flex items-center gap-2">
                                                 <div className="relative w-20 h-2 bg-gray-200 rounded overflow-hidden">

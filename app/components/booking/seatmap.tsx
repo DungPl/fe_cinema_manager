@@ -74,7 +74,7 @@ export default function SeatMap({
     if (!showtimeId) return
 
     wsRef.current = new WebSocket(
-      `ws://${window.location.host}/ws/seat/${showtimeId}`
+      `ws://${window.location.host}/lich-chieu/ghe/${showtimeId}`
     )
 
     wsRef.current.onmessage = e => {

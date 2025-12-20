@@ -1,12 +1,12 @@
 // src/app/components/layouts/Navbar.tsx  ←  CẬP NHẬT MỚI NHẤT 11/11/2025 09:19
 
 import { Link } from "react-router-dom"
-import { authStore } from "~/stores/authStore"
+import { useAuthStore } from "~/stores/authAccountStore"
 import { Bell, MessageSquare, LogOut, User, Moon, Sun } from "lucide-react"
 //import { useTheme } from "next-themes" // nếu dùng next-themes, hoặc tự viết toggle
 
 export function Navbar() {
-  const { user } = authStore.getState()
+const account = useAuthStore(state => state.account)
   // const { theme, setTheme } = useTheme() // bỏ comment nếu dùng next-themes
 
   return (
@@ -85,7 +85,7 @@ export function Navbar() {
           </a>
           <div className="dropdown-menu dropdown-menu-right">
             <span className="dropdown-item dropdown-header">
-              {user?.username || "Admin"}
+              {account?.username || "Admin"}
             </span>
             <div className="dropdown-divider"></div>
             <Link to="/admin/profile" className="dropdown-item">

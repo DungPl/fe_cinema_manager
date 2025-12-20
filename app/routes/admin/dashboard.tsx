@@ -1,5 +1,5 @@
 import { redirect, useLoaderData } from "react-router-dom"
-import { authStore } from "~/stores/authStore"  // ĐÚNG ~
+import { useAuthStore } from "~/stores/authAccountStore"  // ĐÚNG ~
 
 export async function loader({ request }: { request: Request }) {
   const url = new URL(request.url)
@@ -34,7 +34,7 @@ export async function loader({ request }: { request: Request }) {
     return redirect("/forbidden")
   }
 
-  authStore.getState().login(user)
+  useAuthStore.getState().login(user)
   return { user }
 }
 export default function AdminDashboard() {

@@ -1,5 +1,5 @@
 // Thêm imports mới
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog"  // Remove DialogTrigger
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog" // Remove DialogTrigger
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "~/components/ui/form"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -19,21 +19,29 @@ import { toast } from "sonner"
 import { format as formatDate } from "date-fns"
 import { vi } from "date-fns/locale"
 import { useState, useEffect } from "react"
-
 // Giả sử API fetch movies, cinemas, rooms
 import { getMovieById, getMovies } from "~/lib/api/movieApi"
 import { getCinemas } from "~/lib/api/cinemaApi"
 import { getRoomsByCinemaId } from "~/lib/api/roomApi"
 import { createShowtimeBatch, getShowtimeByCinemaAndDate, getShowtimes } from "~/lib/api/showtimeApi"
 import type { Movie, Cinema, Room, Format } from "~/lib/api/types"
-
 type CreateShowtimeDialogProps = {
     selectedDate?: Date // có thể undefined
     refreshShowtimes: () => Promise<void>
     open: boolean
     onOpenChange: (open: boolean) => void
 }
-
+export type LanguageType =
+    | "VI_SUB"
+    | "VI_DUB"
+    | "EN_SUB"
+    | "EN_DUB"
+const LANGUAGE_OPTIONS: { key: LanguageType; label: string }[] = [
+    { key: "VI_SUB", label: "Phụ đề Việt" },
+    { key: "VI_DUB", label: "Lồng tiếng Việt" },
+    { key: "EN_SUB", label: "Phụ đề Anh" },
+    { key: "EN_DUB", label: "Lồng tiếng Anh" },
+]
 // Schema validation
 const formSchema = z.object({
     movieId: z.string().min(1, "Chọn phim"),
@@ -41,16 +49,16 @@ const formSchema = z.object({
     cinemaId: z.string().min(1, "Chọn rạp"),
     roomIds: z.array(z.string()).min(1, "Chọn ít nhất 1 phòng"),
     formats: z.array(z.enum(["2D", "3D", "IMAX", "4DX"])).min(1, "Chọn ít nhất 1 format"),
-
+    languageTypes: z.array(
+        z.enum(["VI_SUB", "VI_DUB", "EN_SUB", "EN_DUB"])
+    ).min(1, "Chọn ít nhất 1 loại phụ đề / lồng tiếng"),
     startDate: z.date(),
     endDate: z.date(),
-
     timeSlots: z.array(
         z.object({
             value: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Giờ không hợp lệ")
         })
     ).min(1, "Cần ít nhất 1 khung giờ"),
-
     price: z.number().min(10000, "Giá vé tối thiểu 10.000 đ"),
 })
     .refine((data) => data.startDate, {
@@ -112,7 +120,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [existingShowtimes, setExistingShowtimes] = useState<any[]>([])
     // Fetch data
-
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -120,7 +127,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                     getMovies({ showingStatus: "NOW_SHOWING" }),
                 ]);
                 setMovies(moviesRes.rows);
-
                 // Fetch all cinemas with paging
                 let allCinemas: Cinema[] = [];
                 let page = 1;
@@ -140,7 +146,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
         }
         fetchData()
     }, [])
-
     // Fetch rooms khi chọn cinema
     useEffect(() => {
         if (selectedCinema) {
@@ -177,7 +182,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             setIsFetchingMovie(false);
         }
     };
-
     // Form
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -187,39 +191,31 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             cinemaId: "",
             roomIds: [],
             formats: ["2D"],
+            languageTypes: ["VI_SUB"],
             startDate: selectedDate || new Date(),
             endDate: selectedDate || new Date(),
             timeSlots: [],
             price: 50000,
         },
     })
-
     const { watch } = form
     const watchedStartDate = watch("startDate")
     const watchedEndDate = watch("endDate")
     const watchedCinemaId = watch("cinemaId")
     // console.log("Fetch với:", {
-    //     cinemaId: watchedCinemaId,
-    //     dateStart: watchedStartDate,
-    //     dateEnd: watchedEndDate
+    // cinemaId: watchedCinemaId,
+    // dateStart: watchedStartDate,
+    // dateEnd: watchedEndDate
     // });
-
     // Fetch existing showtimes
     useEffect(() => {
-
         const parseTimeOnDate = (date: Date, hhmm: string) => {
-            const [hhStr, mmStr] = (hhmm || "00:00").split(":");
-            const hh = Number(hhStr || 0);
-            const mm = Number(mmStr || 0);
-            return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hh, mm, 0);
+            return new Date(date.getFullYear(), date.getMonth(), date.getDate(), ...hhmm.split(":").map(Number));
         };
-
         const isOverlap = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => {
             return aStart < bEnd && bStart < aEnd;
         };
-
         const DEBUG = true; // set false to silence debug logs
-
         const subscription = watch(async (value) => {
             if (
                 value.movieId &&
@@ -234,7 +230,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                     let fetchDate = new Date(value.startDate);
                     const lastDate = new Date(value.endDate);
                     const allExisting: any[] = [];
-
                     while (fetchDate <= lastDate) {
                         const dateStr = formatDate(fetchDate, "yyyy-MM-dd");
                         const showtimes = await getShowtimeByCinemaAndDate(Number(value.cinemaId), dateStr) as any[];
@@ -242,38 +237,30 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                         fetchDate = addDays(fetchDate, 1);
                     }
                     setExistingShowtimes(allExisting);
-
                     //if (DEBUG) console.log("allExisting loaded:", allExisting.length);
-
                     // --- PREPARE ---
                     let previewDate = new Date(value.startDate);
                     const lastPreviewDate = new Date(value.endDate);
                     const movie = await getMovieById(Number(value.movieId));
                     setMovieDuration(movie.duration || 120);
-
                     const previews: any[] = [];
                     const skippedPreviews: any[] = [];
                     let skipped = 0;
-
                     const formatConfigs: { [key: string]: { offsetMinutes: number; maxPerDay: number; maxRooms: number } } = {
                         "2D": { offsetMinutes: 10, maxPerDay: 8, maxRooms: Infinity },
                         "3D": { offsetMinutes: 10, maxPerDay: 6, maxRooms: Infinity },
                         "IMAX": { offsetMinutes: 10, maxPerDay: 4, maxRooms: 2 },
                         "4DX": { offsetMinutes: 10, maxPerDay: 4, maxRooms: 2 },
                     };
-
                     const minGapBetweenRooms = 10 * 60 * 1000;
                     const breakStartHour = 11;
                     const breakEndHour = 14;
                     const imaxLateCountPerDay: { [key: string]: number } = {};
-
                     // Precompute ordered room ids (numbers)
                     const orderedRoomIds = (value.roomIds ?? []).map(Number);
-
                     while (previewDate <= lastPreviewDate) {
                         const dateKey = formatDate(previewDate, "yyyy-MM-dd");
                         imaxLateCountPerDay[dateKey] = 0;
-
                         // build map of existing by room for this date (use allExisting local!)
                         const existingByRoom = new Map<number, any[]>();
                         for (const s of allExisting) {
@@ -283,53 +270,42 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                             if (!existingByRoom.has(rid)) existingByRoom.set(rid, []);
                             existingByRoom.get(rid)!.push(s);
                         }
-
                         const validSlots: string[] = (value.timeSlots ?? [])
                             .filter((t: any) => t?.value !== undefined)
                             .map((t: any) => t.value);
-
                         const dailyCreatedByFormat = Object.fromEntries(
                             value.formats.map(fmt => [fmt, 0])
                         ) as Record<string, number>
-
                         for (const roomIdNum of orderedRoomIds) {
                             const room = rooms.find(r => r.id === roomIdNum);
                             if (!room) continue;
-
                             for (const format of (value.formats ?? [])) {
                                 if (!format) { skipped++; continue; }
                                 if (!room.formats?.some((f: any) => f.name === format)) { skipped += validSlots.length; continue; }
-
                                 const config = formatConfigs[format];
                                 if (!config) continue;
                                 const maxPerDay = config.maxPerDay;
                                 const offsetMinutes = config.offsetMinutes;
-
                                 for (const slot of validSlots) {
                                     if (dailyCreatedByFormat[format] >= maxPerDay) break;
-
                                     // base startTime from slot on previewDate
                                     let startTime = parseTimeOnDate(previewDate, slot);
-
                                     // lunch break shift
                                     // if (startTime.getHours() >= breakStartHour && startTime.getHours() < breakEndHour) {
-                                    //     startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), breakEndHour, 0, 0);
-                                    //     startTime = addMinutes(startTime, extraBreakTime);
+                                    // startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), breakEndHour, 0, 0);
+                                    // startTime = addMinutes(startTime, extraBreakTime);
                                     // }
-
                                     // idx from orderedRoomIds (stable)
                                     const idx = orderedRoomIds.indexOf(roomIdNum);
                                     if (idx === -1) { skipped++; continue; }
-
                                     // apply offset
                                     startTime = addMinutes(startTime, idx * offsetMinutes);
-                                    if (startTime.getHours() >= 11 && startTime.getHours() <14) {
+                                    if (startTime.getHours() >= 11 && startTime.getHours() < 14) {
                                         const lunchRoomGapMinutes = 20;
                                         startTime = addMinutes(startTime, idx * lunchRoomGapMinutes);
                                     }
                                     // normalize date to previewDate (prevent day shift)
                                     startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), startTime.getHours(), startTime.getMinutes(), 0);
-
                                     // if date changed after normalization -> skip
                                     if (formatDate(startTime, "yyyy-MM-dd") !== dateKey) {
                                         skipped++;
@@ -344,14 +320,11 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         });
                                         continue;
                                     }
-
                                     const endTime = addMinutes(startTime, movie.duration || 120);
-
                                     // dynamic min gap in same room
                                     const hourAfterShift = startTime.getHours();
                                     const min_gap_in_room_minutes = (hourAfterShift >= breakStartHour && hourAfterShift < breakEndHour) ? 30 : 10;
                                     const min_gap_in_room_ms = min_gap_in_room_minutes * 60 * 1000;
-
                                     // IMAX late limit
                                     if (format === "IMAX" && startTime.getHours() >= 22) {
                                         if ((imaxLateCountPerDay[dateKey] ?? 0) >= 1) {
@@ -361,11 +334,9 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         }
                                         imaxLateCountPerDay[dateKey] = (imaxLateCountPerDay[dateKey] ?? 0) + 1;
                                     }
-
                                     // --- CHECK WITH EXISTING IN SAME ROOM (use existingByRoom) ---
                                     const roomExisting = existingByRoom.get(roomIdNum) ?? [];
                                     //if (DEBUG) console.log("Checking roomExisting for", roomIdNum, "count:", roomExisting.length);
-
                                     let conflictingExisting: any[] = [];
                                     for (const s of roomExisting) {
                                         const sStart = toLocalDate(s.start);
@@ -378,7 +349,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             break;
                                         }
                                     }
-
                                     if (conflictingExisting.length > 0) {
                                         //if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
                                         skipped++;
@@ -398,7 +368,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         });
                                         continue;
                                     }
-
                                     // --- CHECK WITH PREVIEWS IN SAME ROOM ---
                                     const roomPreviews = previews.filter(p => p.roomId === roomIdNum && p.date === formatDate(previewDate, "dd/MM/yyyy"));
                                     let conflictingPreviews: any[] = [];
@@ -413,7 +382,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             break;
                                         }
                                     }
-
                                     if (conflictingPreviews.length > 0) {
                                         //if (DEBUG) console.log("Conflicting previews:", conflictingPreviews);
                                         skipped++;
@@ -428,7 +396,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         });
                                         continue;
                                     }
-
                                     // --- NEARBY checks (other rooms) using allExisting ---
                                     const otherExisting = allExisting.filter(s => s.movieId === Number(value.movieId) && Number(s.roomId) !== roomIdNum && s.start.split('T')[0] === dateKey);
                                     const nearbyConflictsExisting = otherExisting.filter((s: any) => {
@@ -448,7 +415,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         });
                                         continue;
                                     }
-
                                     const otherPreviews = previews.filter(p => p.roomId !== roomIdNum && p.date === formatDate(previewDate, "dd/MM/yyyy"));
                                     const nearbyConflictsPreviews = otherPreviews.filter((p: any) => {
                                         const pStart = parseTimeOnDate(previewDate, p.startTime);
@@ -467,7 +433,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         });
                                         continue;
                                     }
-
                                     // OK push
                                     previews.push({
                                         date: formatDate(previewDate, "dd/MM/yyyy"),
@@ -481,10 +446,8 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                 } // end slots
                             } // end format
                         } // end room loop
-
                         previewDate = addDays(previewDate, 1);
                     } // end previewDate while
-
                     setPreviewShowtimes(previews);
                     setSkippedPreviews(skippedPreviews);
                     setSkippedCount(skipped);
@@ -498,11 +461,8 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                 setExistingShowtimes([]);
             }
         });
-
         return () => subscription.unsubscribe();
     }, [watch, rooms]);
-
-
     // onSubmit
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         setIsSubmitting(true)
@@ -513,6 +473,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                 startDate: formatDate(values.startDate, "yyyy-MM-dd"),
                 endDate: formatDate(values.endDate, "yyyy-MM-dd"),
                 formats: values.formats,
+                languageTypes: values.languageTypes,
                 timeSlots: values.timeSlots.map(t => t.value),
                 price: values.price, // Nếu backend hỗ trợ override
             }
@@ -528,19 +489,20 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             setIsSubmitting(false)
         }
     }
-
     // Provinces unique từ cinemas
-    const provinces = [...new Set(cinemas.map(c => c.address?.[0]?.province).filter(Boolean))]
-
+    const provinces = [
+        ...new Set(
+            cinemas
+                .map(c => c.address?.[0]?.province)
+                .filter((p): p is string => typeof p === "string")
+        )
+    ]
     // Cinemas filtered by province
     const filteredCinemas = selectedProvince ? cinemas.filter(c => c.address?.[0]?.province === selectedProvince) : cinemas
-
     const timeOptions: string[] = [];
-
     for (let h = 8; h <= 23; h++) {
         for (let m of [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]) {
             if (h === 23 && m > 30) continue;
-
             const hh = h.toString().padStart(2, "0");
             const mm = m.toString().padStart(2, "0");
             timeOptions.push(`${hh}:${mm}`);
@@ -552,14 +514,11 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                 <DialogHeader>
                     <DialogTitle>Tạo Batch Suất Chiếu</DialogTitle>
                 </DialogHeader>
-
                 {/* FORM */}
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
                         {/* --- PHẦN 1: CHỌN PHIM / ĐỊA ĐIỂM --- */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                             {/* PHIM */}
                             <FormField
                                 control={form.control}
@@ -604,7 +563,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     </FormItem>
                                 )}
                             />
-
                             {/* KHU VỰC */}
                             <FormField
                                 control={form.control}
@@ -640,7 +598,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     </FormItem>
                                 )}
                             />
-
                             {/* RẠP */}
                             <FormField
                                 control={form.control}
@@ -663,13 +620,11 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-
                                             <PopoverContent className="w-full p-0">
                                                 <Command>
                                                     <CommandInput placeholder="Tìm tên rạp..." />
                                                     <CommandList className="max-h-60 overflow-y-auto">
                                                         <CommandEmpty>Không tìm thấy rạp</CommandEmpty>
-
                                                         <CommandGroup>
                                                             {filteredCinemas.map((c) => (
                                                                 <CommandItem
@@ -693,7 +648,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     </FormItem>
                                 )}
                             />
-
                             {/* MULTI SELECT PHÒNG */}
                             <FormField
                                 control={form.control}
@@ -746,7 +700,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     </FormItem>
                                 )}
                             />
-
                             {/* FORMAT MULTI SELECT */}
                             <FormField
                                 control={form.control}
@@ -794,9 +747,57 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     </FormItem>
                                 )}
                             />
-
+                            <FormField
+                                control={form.control}
+                                name="languageTypes"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Phụ đề / Lồng tiếng</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant="outline" className="w-full justify-between">
+                                                        {field.value?.length
+                                                            ? field.value.join(", ")
+                                                            : "Chọn phụ đề / lồng tiếng"}
+                                                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-full p-0">
+                                                <Command>
+                                                    <CommandGroup>
+                                                        {LANGUAGE_OPTIONS.map(item => {
+                                                            const selected = field.value?.includes(item.key)
+                                                            return (
+                                                                <CommandItem
+                                                                    key={item.key}
+                                                                    onSelect={() => {
+                                                                        const updated: LanguageType[] = selected
+                                                                            ? field.value.filter((v: LanguageType) => v !== item.key)
+                                                                            : [...field.value, item.key]
+                                                                        field.onChange(updated)
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4",
+                                                                            selected ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    {item.label}
+                                                                </CommandItem>
+                                                            )
+                                                        })}
+                                                    </CommandGroup>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </div>
-
                         {/* NGÀY BẮT ĐẦU - KẾT THÚC */}
                         <div className="grid grid-cols-2 gap-4">
                             {/* startDate */}
@@ -827,7 +828,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     </FormItem>
                                 )}
                             />
-
                             {/* endDate */}
                             <FormField
                                 control={form.control}
@@ -867,7 +867,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                 const currentHour = now.getHours()
                                 const currentMinute = now.getMinutes()
                                 const isToday = watchedStartDate && formatDate(watchedStartDate, "yyyy-MM-dd") === formatDate(now, "yyyy-MM-dd")
-
                                 return (
                                     <FormItem>
                                         <FormLabel>Khung giờ</FormLabel>
@@ -915,7 +914,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                                 </Command>
                                             </PopoverContent>
                                         </Popover>
-
                                         <div className="flex flex-wrap gap-2 mt-3">
                                             {field.value.map((slot: { value: string }, idx: number) => (
                                                 <Badge key={idx} variant="secondary">
@@ -935,7 +933,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                 )
                             }}
                         />
-
                         {/* GIÁ */}
                         <FormField
                             control={form.control}
@@ -950,14 +947,12 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                 </FormItem>
                             )}
                         />
-
                         {/* PREVIEW */}
                         {previewShowtimes.length > 0 && (
                             <div className="border rounded-lg p-4 bg-muted max-h-60 overflow-auto">
                                 <h3 className="font-bold mb-2">
                                     Preview: {previewShowtimes.length} suất chiếu (ước tính bỏ qua {skippedCount})
                                 </h3>
-
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -980,7 +975,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         ))}
                                     </TableBody>
                                 </Table>
-
                                 {previewShowtimes.length > 30 && (
                                     <p className="text-xs text-muted-foreground mt-2">
                                         (Đang hiển thị 30 dòng đầu)
@@ -988,13 +982,11 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                 )}
                             </div>
                         )}
-
                         {skippedPreviews.length > 0 && (
                             <div className="border rounded-lg p-4 bg-muted max-h-60 overflow-auto mt-4">
                                 <h3 className="font-bold mb-2 text-red-500">
                                     Suất bị bỏ qua do trùng lịch: {skippedPreviews.length}
                                 </h3>
-
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -1016,14 +1008,13 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                                 <TableCell>{p.startTime}</TableCell>
                                                 <TableCell>{p.endTime}</TableCell>
                                                 <TableCell>{p.reason}</TableCell>
-                                                <TableCell>  {p.conflicts && p.conflicts.length > 0
+                                                <TableCell> {p.conflicts && p.conflicts.length > 0
                                                     ? p.conflicts.filter(Boolean).join(", ")
                                                     : "—"}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
-
                                 {skippedPreviews.length > 30 && (
                                     <p className="text-xs text-muted-foreground mt-2">
                                         (Đang hiển thị 30 dòng đầu)
@@ -1031,21 +1022,18 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                 )}
                             </div>
                         )}
-
                         {/* ACTION BUTTONS */}
                         <div className="flex justify-end gap-3 pt-4">
                             <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
                                 Hủy
                             </Button>
-
                             <Button type="submit" disabled={isSubmitting}>
                                 {isSubmitting ? "Đang tạo..." : "Tạo suất chiếu"}
                             </Button>
                         </div>
-
                     </form>
                 </Form>
             </DialogContent>
         </Dialog>
     )
-}  
+}

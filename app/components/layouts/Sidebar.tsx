@@ -1,6 +1,6 @@
 // src/app/components/layouts/Sidebar.tsx
 import { Link, useLocation } from "react-router-dom"
-import { authStore } from "~/stores/authStore"
+import { useAuthStore } from "~/stores/authAccountStore"
 import { useState } from "react"
 import {
   Home, Building2, Store, DoorOpen, Film, Users, Calendar,
@@ -15,7 +15,7 @@ export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [openMenus, setOpenMenus] = useState<string[]>([])
   const location = useLocation()
-  const { user } = authStore.getState()
+ const account = useAuthStore(state => state.account)
   const { theme, toggleTheme } = useThemeStore()
 
   const isDark = theme === "dark"
@@ -61,11 +61,11 @@ export function Sidebar({ className }: SidebarProps) {
     { icon: Settings, label: "Cài đặt", to: "/admin/settings" },
   ]
 
-  const hasRole = (roles?: string[]) => !roles || roles.includes(user?.role?.toLowerCase() || "")
+  const hasRole = (roles?: string[]) => !roles || roles.includes(account?.role?.toLowerCase() || "")
   const isActive = (to: string, exact?: boolean) => exact ? location.pathname === to : location.pathname.startsWith(to)
   // Thay đổi hover và active
   return (
-    <aside className={`flex flex-col transition-all duration-300 h-screen flex-shrink-0 ${isDark ? "bg-gray-900 text-gray-100 border-gray-800" : "bg-white text-gray-800 border-gray-200"
+    <aside className={`flex flex-col transition-all duration-300 h-screen shrink-0 ${isDark ? "bg-gray-900 text-gray-100 border-gray-800" : "bg-white text-gray-800 border-gray-200"
       } ${collapsed ? "w-20" : "w-64"} border-r`}
     >
 
@@ -93,8 +93,8 @@ export function Sidebar({ className }: SidebarProps) {
         <img src="/avatar.png" className="w-8 h-8 rounded-full" alt="User" />
         {!collapsed && (
           <div className="flex flex-col">
-            <span className="font-bold">{user?.username || "Admin"}</span>
-            <span className="text-sm text-gray-400">{user?.role === "admin" ? "Quản trị viên" : "Nhân viên"}</span>
+            <span className="font-bold">{account?.username}</span>
+            <span className="text-sm text-gray-400">{account?.role === "admin" ? "Quản trị viên" : "Nhân viên"}</span>
           </div>
         )}
       </div>

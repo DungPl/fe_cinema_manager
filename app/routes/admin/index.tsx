@@ -6,7 +6,7 @@ import {
   Popcorn
 } from "lucide-react"
 // import { useLoaderData } from "react-router-dom"
-import { authStore } from "~/stores/authStore"
+import { useAuthStore } from "~/stores/authAccountStore"
 import { formatCurrency, formatNumber } from "~/lib/utils"
 // import { Sidebar } from "~/components/layouts/Sidebar" // ← import Sidebar
 // import { Navbar } from "~/components/layouts/Navbar"
@@ -71,7 +71,7 @@ export default function AdminDashboard() {
     },
   ]
 
-  const { user } = authStore.getState()
+  const { account } = useAuthStore.getState()
 
   const menuCards = [
   {
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
         {/* Welcome Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            Chào mừng quay lại, <span className="text-primary">{user?.username || "Admin"}</span>
+            Chào mừng quay lại, <span className="text-primary">{account?.username || "Admin"}</span>
           </h1>
           <p className="text-muted-foreground mt-2">
             Cập nhật lúc: {new Date().toLocaleString("vi-VN")}
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
           <Link to={item.to} key={item.title}>
             <Card className="group p-6 hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer border-2 border-transparent hover:border-gray-300 relative overflow-hidden bg-white">
               {/* Gradient nền khi hover */}
-              <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300`} />
+              <div className={`absolute inset-0 bg-linear-to-r ${item.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300`} />
 
               <CardContent className="flex items-center space-x-5 relative z-10">
                 <div className="p-3 rounded-full bg-gray-50 group-hover:bg-white transition-colors">
