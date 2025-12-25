@@ -15,6 +15,14 @@ export default [
         path: "dat-ve/:code",
         file: "routes/public/dat-ve/[code].tsx", // Thêm file mới cho trang chi tiết rạp
       },
+      {
+        path: "phim/:slug",  // ← Thêm dòng này
+        file: "routes/public/phim/[slug].tsx",  // ← Trỏ đến file phim chi tiết
+      },
+      {
+        path: "payment/:code",  // ← Thêm dòng này
+        file: "routes/public/payment/[code].tsx",  // ← Trỏ đến file phim chi tiết
+      },
     ]
   },
 

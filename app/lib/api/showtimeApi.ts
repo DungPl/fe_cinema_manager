@@ -1,4 +1,4 @@
-import type { AutoGenerateResponse, CreateShowtimeBatchInput, FilterShowtimeParams, HoldSeatRequest, HoldSeatResponse, PurchaseSeatsRequest, PurchaseSeatsResponse, ReleaseSeatRequest, SeatsData, Showtime, ShowtimeResponse, UpdateShowtime } from "~/lib/api/types";
+import type { AutoGenerateResponse, CreateShowtimeBatchInput, FilterShowtimeParams, HoldSeatRequest, HoldSeatResponse, PurchaseSeatsRequest, PurchaseSeatsResponse, ReleaseSeatRequest, Seat, SeatsData, SeatType, Showtime, ShowtimeResponse, UpdateShowtime } from "~/lib/api/types";
 import { apiClient } from "./client";
 interface ApiResponse<T> {
   status: string;
@@ -39,6 +39,29 @@ export const getShowtimeByCinemaAndDate = async (
 
   return res; // Không còn unknown
 };
+interface ShowtimeSeat {
+   ShowtimeId:number      
+    SeatId :    number     
+    SeatRow  :  string  
+    SeatTypeId: number     
+    Status  :   string    
+    Showtime :  Showtime  
+    SeatType  : SeatType   
+    Seat  :     Seat      
+}
+export const getHeldSeatBySessionId = async ( 
+  code: string,
+  sessionId: string
+): Promise<ShowtimeSeat> => {
+  const res = await apiClient.get<ShowtimeSeat>(
+    `/lichchieu/${code}/ghe-giu`,
+    {
+      params: code, sessionId,
+    }
+  );
+
+  return res; 
+};
 export const getShowtimeByPublicCode = async (code: string): Promise<Showtime> => {
   const res = await apiClient.get<ApiResponse<Showtime>>(`/lich-chieu/dat-ve/${code}`);
   return res.data; // Trả về res.data để khớp type Showtime
@@ -55,7 +78,9 @@ export type SeatsByRowResponse = Record<
     id: number
     label: string
     type: "NORMAL" | "VIP" | "COUPLE"
-    status: "AVAILABLE" | "HOLD" | "BOOKED"
+    status: "AVAILABLE" | "HELD" | "BOOKED"
+    heldBy?: string
+    expiredAt?: string
   }[]
 >
 

@@ -1,104 +1,264 @@
-import { useParams, useNavigate } from "react-router-dom"
+// routes/payment/[code].tsx
 import { useEffect, useState } from "react"
+import { useParams, useNavigate } from "react-router-dom"
+import { Button } from "~/components/ui/button"
+import { Input } from "~/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
+import { Badge } from "~/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table"
+import { AlertCircle, Loader2, ArrowLeft } from "lucide-react" // ← Thêm ArrowLeft
+import { Alert, AlertDescription } from "~/components/ui/alert"
 import { purchaseSeats } from "~/lib/api/showtimeApi"
-
-interface PaymentDraft {
-  seatIds: number[]
-  heldBy: string
-}
 
 export default function PaymentPage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
 
-  const [draft, setDraft] = useState<PaymentDraft | null>(null)
-
+  const [paymentInfo, setPaymentInfo] = useState<any>(null)
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [email, setEmail] = useState("")
-
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /* ================= LOAD GHẾ ĐÃ GIỮ ================= */
   useEffect(() => {
-    const raw = localStorage.getItem("paymentDraft")
+    const raw = localStorage.getItem("paymentInfo")
     if (!raw) {
-      setError("Không tìm thấy thông tin ghế đã giữ")
+      setError("Không tìm thấy thông tin đơn hàng")
       return
     }
-    setDraft(JSON.parse(raw))
-  }, [])
+    const info = JSON.parse(raw)
+    if (info.code !== code) {
+      setError("Thông tin đơn hàng không hợp lệ")
+      return
+    }
+    setPaymentInfo(info)
+    setName(info.name || "")
+    setPhone(info.phone || "")
+    setEmail(info.email || "")
+  }, [code])
 
-  /* ================= SUBMIT ================= */
   const handlePayment = async () => {
-    if (!draft) return
-
+    if (!paymentInfo) return
     if (!name || !phone || !email) {
-      alert("Vui lòng nhập đầy đủ thông tin")
+      setError("Vui lòng nhập đầy đủ thông tin")
       return
     }
 
     setLoading(true)
+    setError(null)
+
     try {
+      const seatIds = paymentInfo.selectedSeats.map((s: any) => Number(s.id))
+
       await purchaseSeats(code!, {
-        seatIds: draft.seatIds,
-        heldBy: draft.heldBy,
+        seatIds,
+        heldBy: paymentInfo.heldBy,
         name,
         phone,
         email,
       })
 
-      localStorage.removeItem("paymentDraft")
+      localStorage.removeItem("paymentInfo")
+      localStorage.removeItem("seat_session")
+      localStorage.removeItem("seat_expire")
+      localStorage.removeItem("selected_seats")
+
       navigate("/success")
-    } catch (err) {
-      setError("Thanh toán thất bại. Ghế có thể đã hết hạn.")
+    } catch (err: any) {
+      setError(err.message || "Thanh toán thất bại. Ghế có thể đã hết hạn hoặc lỗi hệ thống.")
     } finally {
       setLoading(false)
     }
   }
 
-  if (error) return <div className="p-4 text-red-500">{error}</div>
-  if (!draft) return <div>Đang tải...</div>
+  const handleBack = () => {
+    navigate(`/dat-ve/${code}`) // Quay lại trang chọn ghế
+  }
+
+  if (error) return (
+    <div className="max-w-md mx-auto p-6">
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+      <Button variant="outline" className="mt-4 w-full" onClick={handleBack}>
+        Quay lại chọn ghế
+      </Button>
+    </div>
+  )
+
+  if (!paymentInfo) return <div className="text-center p-10">Đang tải...</div>
+
+  // Nhóm ghế đôi để hiển thị
+  const groupedSeats = () => {
+    const result: { label: string; type: string; price: number }[] = []
+    const processedCouples = new Set<number>()
+    const basePrice = paymentInfo.basePrice || 50000
+
+    paymentInfo.selectedSeats.forEach((seat: any) => {
+      if (seat.coupleId && processedCouples.has(seat.coupleId)) {
+        return // Bỏ qua ghế thứ 2
+      }
+
+      const modifier = seat.priceModifier || 1
+      const price = basePrice * modifier
+
+      let label = seat.label
+      if (seat.coupleId) {
+        const coupleSeat = paymentInfo.selectedSeats.find((s: any) => s.coupleId === seat.coupleId && s.id !== seat.id)
+        if (coupleSeat) {
+          label = `${seat.label} + ${coupleSeat.label}`
+          processedCouples.add(seat.coupleId)
+        }
+      }
+
+      result.push({
+        label,
+        type: seat.type,
+        price,
+      })
+    })
+
+    return result
+  }
+
+  const grouped = groupedSeats()
 
   return (
-    <div className="max-w-md mx-auto p-6 space-y-4">
-      <h2 className="text-xl font-bold text-center">
-        Thông tin thanh toán
-      </h2>
+    <div className="max-w-4xl mx-auto p-6">
+      <Card className="border-2 border-primary/20 shadow-2xl">
+        <CardHeader className="bg-primary/5 pb-4">
+          <CardTitle className="text-3xl font-bold text-center">
+            Thanh toán đơn hàng
+          </CardTitle>
+        </CardHeader>
 
-      <input
-        className="w-full border p-2 rounded"
-        placeholder="Họ và tên"
-        value={name}
-        onChange={e => setName(e.target.value)}
-      />
+        <CardContent className="space-y-8 pt-8">
+          {/* Thông tin suất chiếu */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-2xl">Thông tin suất chiếu</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <span className="text-muted-foreground block text-sm">Phim</span>
+                <p className="font-medium text-lg">{paymentInfo.movieTitle || "Đang cập nhật"}</p>
+              </div>
+              <div className="space-y-2">
+                <span className="text-muted-foreground block text-sm">Thời gian</span>
+                <p className="font-medium text-lg">
+                  {new Date(paymentInfo.startTime).toLocaleString("vi-VN", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
 
-      <input
-        className="w-full border p-2 rounded"
-        placeholder="Số điện thoại"
-        value={phone}
-        onChange={e => setPhone(e.target.value)}
-      />
+          {/* Ghế đã chọn */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-2xl">Ghế đã chọn ({paymentInfo.selectedSeats.length} ghế)</h3>
+            <div className="border rounded-lg overflow-hidden shadow-sm">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead className="w-[200px]">Ghế</TableHead>
+                    <TableHead>Loại</TableHead>
+                    <TableHead className="text-right">Giá</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {grouped.map((item, index) => (
+                    <TableRow key={index} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-medium">{item.label}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {item.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-lg">
+                        {item.price.toLocaleString()} đ
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/30 font-bold">
+                    <TableCell colSpan={2} className="text-xl">Tổng cộng</TableCell>
+                    <TableCell className="text-right text-2xl text-primary">
+                      {paymentInfo.totalAmount.toLocaleString()} đ
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
 
-      <input
-        className="w-full border p-2 rounded"
-        placeholder="Email"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-      />
+          {/* Thông tin liên hệ */}
+          <div className="space-y-6">
+            <h3 className="font-semibold text-2xl">Thông tin liên hệ</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input
+                placeholder="Họ và tên"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="h-12"
+              />
+              <Input
+                type="tel"
+                placeholder="Số điện thoại"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="h-12"
+              />
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="h-12"
+              />
+            </div>
+          </div>
 
-      <div className="text-sm text-gray-600">
-        Ghế đã chọn: {draft.seatIds.join(", ")}
-      </div>
+          {/* Error */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-      <button
-        onClick={handlePayment}
-        disabled={loading}
-        className="w-full bg-green-600 text-white p-2 rounded"
-      >
-        {loading ? "Đang xử lý..." : "Xác nhận thanh toán"}
-      </button>
+          {/* Nút thanh toán & Quay lại */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/dat-ve/${code}`)}
+              className="flex-1 h-12 text-lg"
+            >
+              <ArrowLeft className="mr-2 h-5 w-5" />
+              Quay lại chọn ghế
+            </Button>
+
+            <Button
+              onClick={handlePayment}
+              disabled={loading}
+              className="flex-1 h-12 text-lg"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-3 h-6 w-6 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                "Xác nhận thanh toán"
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

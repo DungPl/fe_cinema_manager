@@ -1,39 +1,46 @@
-import { Crown, Heart } from "lucide-react"
 import type { BookingSeat } from "~/lib/api/types"
 
 export default function Seats({
   seat,
   selected,
   onClick,
+  myHeldBy,
 }: {
   seat: BookingSeat
   selected: boolean
   onClick: () => void
+  myHeldBy: string
 }) {
-  const disabled = !seat.isAvailable && !selected
+  const isAvailable = seat.status === "AVAILABLE"
+  const isHeld = seat.status === "HELD"
+  const isBooked = seat.status === "BOOKED"
+
+  const isMyHold = isHeld && seat.heldBy === myHeldBy
+  const isOtherHold = isHeld && seat.heldBy !== myHeldBy
+
+  // Logic màu: ưu tiên trạng thái "đã giữ" (từ backend/WebSocket)
+  const getBgClass = () => {
+    if (isBooked) return "bg-red-500 text-white cursor-not-allowed"
+    if (isOtherHold) return "bg-gray-500 text-white cursor-not-allowed"
+    if (isMyHold || selected) return "bg-yellow-400 text-black" // Ghế của bạn hoặc đang chọn
+    if (isAvailable) return "bg-gray-200 hover:bg-blue-200"
+    return "bg-gray-300 cursor-not-allowed"
+  }
 
   return (
     <button
-      disabled={disabled}
-      onClick={onClick}
+      disabled={!isAvailable && !isMyHold}
+      onClick={isAvailable || isMyHold ? onClick : undefined}
       className={`
-        relative w-8 h-8 rounded
-        ${seat.status === "BOOKED" && "bg-gray-400"}
-        ${seat.status === "HOLD" && !selected && "bg-yellow-400"}
-        ${selected && "bg-green-500"}
-        ${seat.type === "VIP" && "border-2 border-yellow-500"}
-        ${seat.type === "COUPLE" && "border-2 border-pink-500"}
+        w-9 h-9 rounded text-xs font-semibold transition
+        flex items-center justify-center
+        ${getBgClass()}
+
+        ${seat.type === "VIP" && "ring-2 ring-purple-500"}
+        ${seat.type === "COUPLE" && "ring-2 ring-pink-500 w-20"}
       `}
     >
-      {/* ICON */}
-      {seat.type === "VIP" && (
-        <Crown size={14} className="absolute -top-2 -right-2 text-yellow-500" />
-      )}
-      {seat.type === "COUPLE" && (
-        <Heart size={14} className="absolute -top-2 -right-2 text-pink-500" />
-      )}
-
-      <span className="text-xs">{seat.label}</span>
+      {seat.label}
     </button>
   )
 }

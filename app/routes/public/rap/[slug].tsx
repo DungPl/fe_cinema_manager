@@ -69,8 +69,7 @@ export default function CinemaDetailPage() {
         </div>
       </div>
 
-      {/* ===== DATE SELECTOR ===== */}
-      {/* ===== DATE SELECTOR ===== */}
+    
       {/* ===== DATE SELECTOR ===== */}
       <div className="flex gap-3 overflow-x-auto pb-1">
         {dates.map((d, idx) => {

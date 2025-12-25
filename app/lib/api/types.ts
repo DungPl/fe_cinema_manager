@@ -103,7 +103,7 @@ export interface CinemaListResponse {
 }
 export interface Cinema {
   roomCount?: number
-
+  slug:string
   id: number
   name: string
   phone: string
@@ -213,15 +213,16 @@ export interface SeatRow {
   row: string; // Nhãn row (ví dụ: 'A', 'B')
   seats: Seat[];
 }
-export type SeatStatus = "AVAILABLE" | "HOLD" | "BOOKED"
+export type SeatStatus = "AVAILABLE" | "HELD" | "BOOKED"
 export interface BookingSeat {
   id: number
   label: string
   type: "NORMAL" | "VIP" | "COUPLE"
   status: SeatStatus
-  isAvailable: boolean
+  coupleId? :number
   heldBy?: string
-  expiredAt?: string
+  expiredAt?: Date
+  priceModifier: number
 }
 export interface BookingSeatRow {
   row: string
@@ -350,6 +351,7 @@ export interface Movie {
   language: string
   description: string
   country: string
+  slug:string
   posters: MoviePoster[]
   trailers: MovieTrailer[]
   directorId: number
@@ -441,6 +443,7 @@ export interface Showtime {
   start: string
   end: string
   publicCode: string
+  languageType: string
   Movie: Movie
   Room: Room
   format: string
@@ -514,19 +517,32 @@ export interface MovieWithShowtimesResponse {
 }
 export interface LocationResponse {
   province: string;
-  cinemaCount: number;
+  totalCinemas: number;
   chains: ChainCount[];
 }
 
 export interface ChainCount {
   name: string;
-  count: number;
+  cinemaCount: number;
 }
 
 export interface CinemaChainWithCount {
   id: number;
   name: string;
   cinemaCount: number;
+  logoUrl:string
 }
 
-export type UserRole = "ADMIN" | "MANAGER" | "MODERATOR";
+export type UserRole = "ADMIN" | "MANAGER" | "MODERATOR"|"SELLER";
+export interface MovieShowtimeResponse {
+  movie: Movie
+  format?: string
+  chainId?: number
+  chains: {
+    chain: CinemaChain
+    cinemas: {
+      cinema: Cinema
+      showtimes: Showtime[]
+    }[]
+  }[]
+}

@@ -4,8 +4,21 @@ import {
   getSeatsByShowtime,
   holdSeats,
   releaseSeats,
+  // Thêm API mới (backend cần implement)
+  getHeldSeatBySessionId,
 } from "~/lib/api/showtimeApi"
-import type { BookingSeat } from "~/lib/api/types"
+import type { BookingSeat, SeatStatus } from "~/lib/api/types"
+import { toast } from "sonner"
+
+// Interface cho delta từ WebSocket
+interface SeatDelta {
+  id: number
+  label: string
+  type: "NORMAL" | "VIP" | "COUPLE"
+  status: SeatStatus
+  heldBy?: string
+  expiredAt?: Date
+}
 
 interface SeatRow {
   row: string
@@ -29,34 +42,71 @@ export default function SeatMap({
 }) {
   const [seats, setSeats] = useState<SeatRow[]>([])
   const [error, setError] = useState<string | null>(null)
-
-  const [expiresAt, setExpiresAt] = useState<Date | null>(null)
+  const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [timeLeft, setTimeLeft] = useState(0)
 
   const wsRef = useRef<WebSocket | null>(null)
 
-  // ===============================
-  // LOAD GHẾ BAN ĐẦU (TRẠNG THÁI THỰC)
-  // ===============================
+  // Load session và ghế cũ từ localStorage khi mount
+  useEffect(() => {
+    const savedSession = localStorage.getItem("seat_session")
+    const savedExpire = localStorage.getItem("seat_expire")
+    const savedSeatIds = localStorage.getItem("selected_seats")
+
+    if (savedSession && !heldBy) {
+      setHeldBy(savedSession)
+    }
+
+    if (savedExpire) {
+      const expireDate = new Date(savedExpire)
+      if (!isNaN(expireDate.getTime())) {
+        const diff = Math.floor((expireDate.getTime() - Date.now()) / 1000)
+        setTimeLeft(diff > 0 ? diff : 0)
+        setExpiresAt(savedExpire)
+      }
+    }
+
+    // Khôi phục ghế từ localStorage (sau khi seats load xong)
+    if (savedSeatIds && savedSession) {
+      const seatIds = JSON.parse(savedSeatIds) as number[]
+      const restoredSeats: BookingSeat[] = []
+      seats.forEach(row => {
+        row.seats.forEach(s => {
+          if (seatIds.includes(s.id)) {
+            restoredSeats.push({
+              ...s,
+              status: "HELD",
+              heldBy: savedSession,
+            })
+          }
+        })
+      })
+      if (restoredSeats.length > 0) {
+        onChange(restoredSeats)
+      }
+    }
+  }, [seats]) // Chạy lại khi seats load xong
+
+  // Load ghế ban đầu + WebSocket realtime
   useEffect(() => {
     const fetchSeats = async () => {
       try {
         const res = await getSeatsByShowtime(code)
-
         if (res.status !== "success") throw new Error()
 
-        const mapped: SeatRow[] = Object.entries(res.data).map(
-          ([row, rowSeats]) => ({
-            row,
-            seats: rowSeats.map(seat => ({
-              id: seat.id,
-              label: seat.label,
-              type: seat.type,
-              status: seat.status,
-              isAvailable: seat.status === "AVAILABLE",
-            })),
-          })
-        )
+        const mapped: SeatRow[] = Object.entries(res.data).map(([row, rowSeats]) => ({
+          row,
+          seats: (rowSeats as any[]).map(seat => ({
+            id: seat.id,
+            label: seat.label,
+            type: seat.type,
+            status: seat.status as SeatStatus,
+            heldBy: seat.heldBy,
+            expiredAt: seat.expiredAt,
+            coupleId: seat.coupleId,
+            priceModifier: seat.priceModifier
+          })),
+        }))
 
         setSeats(mapped)
       } catch {
@@ -65,127 +115,177 @@ export default function SeatMap({
     }
 
     fetchSeats()
-  }, [code])
 
-  // ===============================
-  // WEBSOCKET – SYNC REALTIME
-  // ===============================
-  useEffect(() => {
-    if (!showtimeId) return
+    // WebSocket + reconnect
+    const connectWS = () => {
+      if (!showtimeId) return
+      wsRef.current = new WebSocket(`ws://${window.location.host}/lich-chieu/ghe/${showtimeId}`)
 
-    wsRef.current = new WebSocket(
-      `ws://${window.location.host}/lich-chieu/ghe/${showtimeId}`
-    )
+      wsRef.current.onopen = () => console.log("WS connected")
+      wsRef.current.onmessage = (e) => {
+        const data = JSON.parse(e.data) as Record<string, SeatDelta[]>
 
-    wsRef.current.onmessage = e => {
-      const data = JSON.parse(e.data)
-
-      const mapped: SeatRow[] = Object.entries(data).map(
-        ([row, rowSeats]) => ({
-          row,
-          seats: (rowSeats as any[]).map(seat => ({
-            id: seat.id,
-            label: seat.label,
-            type: seat.type,
-            status: seat.status,
-            isAvailable: seat.status === "AVAILABLE",
-          })),
+        setSeats(prev => {
+          const newSeats = prev.map(row => ({
+            ...row,
+            seats: row.seats.map(s => {
+              const updated = (data[row.row] || []).find((u: SeatDelta) => u.id === s.id)
+              return updated ? { ...s, ...updated } : s
+            })
+          }))
+          return newSeats
         })
-      )
+      }
 
-      setSeats(mapped)
+      wsRef.current.onclose = () => setTimeout(connectWS, 1000)
+      wsRef.current.onerror = () => setTimeout(connectWS, 1000)
     }
 
-    return () => wsRef.current?.close()
-  }, [showtimeId])
+    connectWS()
 
-  // ===============================
-  // COUNTDOWN 10 PHÚT
-  // ===============================
+    // Polling fallback (5s)
+    const interval = setInterval(fetchSeats, 5000)
+
+    return () => {
+      wsRef.current?.close()
+      clearInterval(interval)
+    }
+  }, [code, showtimeId])
+
+  // Countdown timer
   useEffect(() => {
     if (!expiresAt || selectedSeats.length === 0) return
 
-    const timer = setInterval(() => {
-      const diff = Math.floor(
-        (expiresAt.getTime() - Date.now()) / 1000
-      )
+    const expireDate = new Date(expiresAt)
+    if (isNaN(expireDate.getTime())) return
 
+    const timer = setInterval(() => {
+      const diff = Math.floor((expireDate.getTime() - Date.now()) / 1000)
       if (diff <= 0) {
         clearInterval(timer)
-
         onChange([])
         setHeldBy("")
+        localStorage.removeItem("seat_session")
+        localStorage.removeItem("seat_expire")
+        localStorage.removeItem("selected_seats")
         setExpiresAt(null)
         setTimeLeft(0)
-
         return
       }
-
       setTimeLeft(diff)
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [expiresAt, selectedSeats.length])
+  }, [expiresAt, selectedSeats.length, onChange, setHeldBy])
 
-  // ===============================
-  // TOGGLE GHẾ
-  // ===============================
+  // Toggle ghế + xử lý ghế đôi
   const toggleSeat = async (seat: BookingSeat) => {
-    if (seat.status !== "AVAILABLE") return
-
+    const isMyHold = seat.status === "HELD" && seat.heldBy === heldBy
     const isSelected = selectedSeats.some(s => s.id === seat.id)
 
-    try {
-      if (isSelected) {
-        await releaseSeats(code, {
-          seatIds: [seat.id],
-          heldBy,
-        })
+    if (seat.status === "BOOKED") return
+    if (seat.status === "HELD" && !isMyHold) return
 
-        const newSelected = selectedSeats.filter(s => s.id !== seat.id)
+    try {
+      let seatIdsToToggle: number[] = [seat.id]
+      let coupleSeats: BookingSeat[] = [seat]
+
+      // Nếu là ghế đôi (type COUPLE hoặc có coupleId)
+      if (seat.type === "COUPLE" || seat.coupleId) {
+        const coupleSeat = seats
+          .flatMap(row => row.seats)
+          .find(s => s.coupleId === seat.coupleId && s.id !== seat.id)
+
+        if (coupleSeat) {
+          if (coupleSeat.status === "BOOKED" || (coupleSeat.status === "HELD" && coupleSeat.heldBy !== heldBy)) {
+            toast.warning("Không thể chọn ghế đôi vì ghế kia đã được chọn hoặc hết hạn.")
+            return
+          }
+          seatIdsToToggle.push(coupleSeat.id)
+          coupleSeats.push(coupleSeat)
+        } else {
+          toast.warning("Không tìm thấy ghế đôi còn lại!")
+          return
+        }
+      }
+
+      if (isSelected) {
+        // Bỏ chọn (release cả cặp)
+        await releaseSeats(code, { seatIds: seatIdsToToggle, heldBy })
+        const newSelected = selectedSeats.filter(s => !seatIdsToToggle.includes(s.id))
         onChange(newSelected)
+
+        // Lưu lại ghế đã chọn
+        localStorage.setItem("selected_seats", JSON.stringify(newSelected.map(s => s.id)))
+
+        setSeats(prev => prev.map(row => ({
+          ...row,
+          seats: row.seats.map(s => seatIdsToToggle.includes(s.id) ? { ...s, status: "AVAILABLE" as SeatStatus, heldBy: "" } : s)
+        })))
 
         if (newSelected.length === 0) {
           setHeldBy("")
+          localStorage.removeItem("seat_session")
+          localStorage.removeItem("seat_expire")
+          localStorage.removeItem("selected_seats")
           setExpiresAt(null)
           setTimeLeft(0)
         }
+      } else {
+        // Chọn (hold cả cặp)
+        if (selectedSeats.length + seatIdsToToggle.length > 10) {
+          toast.warning("Tối đa 10 ghế")
+          return
+        }
 
-        return
+        const res = await holdSeats(code, { seatIds: seatIdsToToggle })
+
+        if (!heldBy && res.sessionId) {
+          setHeldBy(res.sessionId)
+          localStorage.setItem("seat_session", res.sessionId)
+          localStorage.setItem("seat_expire", res.expiresAt)
+          setExpiresAt(res.expiresAt)
+          const expireDate = new Date(res.expiresAt)
+          setTimeLeft(Math.floor((expireDate.getTime() - Date.now()) / 1000))
+        }
+
+        setSeats(prev => prev.map(row => ({
+          ...row,
+          seats: row.seats.map(s => seatIdsToToggle.includes(s.id) ? { ...s, status: "HELD" as SeatStatus, heldBy: res.sessionId || heldBy } : s)
+        })))
+
+        const newSelected = [
+          ...selectedSeats,
+          ...coupleSeats.map(s => ({
+            ...s,
+            status: "HELD" as SeatStatus,
+            heldBy: res.sessionId || heldBy,
+          }))
+        ]
+        onChange(newSelected)
+
+        // Lưu lại ghế đã chọn
+        localStorage.setItem("selected_seats", JSON.stringify(newSelected.map(s => s.id)))
       }
-
-      if (selectedSeats.length >= 10) {
-        alert("Tối đa 10 ghế")
-        return
-      }
-
-      const res = await holdSeats(code, { seatIds: [seat.id] })
-
-      if (!heldBy && res.sessionId) {
-        setHeldBy(res.sessionId)
-        setExpiresAt(new Date(res.expiresAt))
-      }
-
-      onChange([...selectedSeats, seat])
-    } catch {
-      alert("Không thể xử lý ghế")
+    } catch (err) {
+      toast.error("Không thể xử lý ghế")
+      console.error(err)
     }
   }
 
-  if (error) return <div>{error}</div>
+  if (error) return <div className="text-red-500 text-center">{error}</div>
 
   return (
     <div className="md:col-span-2">
       {selectedSeats.length > 0 && timeLeft > 0 && (
-        <div className="text-center text-red-500 font-medium mb-2">
-          ⏳ Giữ ghế {Math.floor(timeLeft / 60)}:
-          {(timeLeft % 60).toString().padStart(2, "0")}
+        <div className="text-center text-red-500 font-medium mb-4">
+          ⏳ Giữ ghế {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, "0")}
         </div>
       )}
 
-      <div className="text-center mb-3 font-medium">MÀN HÌNH</div>
+      <div className="text-center mb-4 font-medium text-lg">MÀN HÌNH</div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {seats.map(row => (
           <div key={row.row} className="flex gap-2 justify-center">
             {row.seats.map(seat => (
@@ -193,6 +293,7 @@ export default function SeatMap({
                 key={seat.id}
                 seat={seat}
                 selected={selectedSeats.some(s => s.id === seat.id)}
+                myHeldBy={heldBy}
                 onClick={() => toggleSeat(seat)}
               />
             ))}

@@ -74,13 +74,13 @@ export default function Navbar() {
               </Button>
 
               {/* Lịch chiếu */}
-              <NavLink to="/lich-chieu">
+              {/* <NavLink to="/lich-chieu">
                 {({ isActive }) => (
                   <Button variant={isActive ? "default" : "ghost"}>
                     Lịch chiếu
                   </Button>
                 )}
-              </NavLink>
+              </NavLink> */}
 
               {/* Phim */}
               <NavLink to="/movies">
@@ -100,7 +100,7 @@ export default function Navbar() {
                   placeholder="Tìm phim, rạp chiếu..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10!"
                 />
               </div>
             </div>
@@ -108,11 +108,11 @@ export default function Navbar() {
             {/* ---------- Right actions ---------- */}
             <div className="flex items-center gap-2">
 
-              <NavLink to="/">
+              {/* <NavLink to="/">
                 <Button variant="ghost" size="icon">
                   <Home className="w-5 h-5" />
                 </Button>
-              </NavLink>
+              </NavLink> */}
 
               <NavLink to="/my-tickets">
                 <Button variant="ghost" size="icon" className="relative">

@@ -146,7 +146,7 @@ export function CinemaDialog({
                 onClick={() => {
                   onSelect(cinema) // Gọi onSelect nếu cần (ví dụ set selected)
                   onOpenChange(false)
-                  const slug = slugify(cinema.name, {
+                  const slug = slugify(cinema.slug, {
                     lower: true,
                     strict: true,
                     locale: "vi",

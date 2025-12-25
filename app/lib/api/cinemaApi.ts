@@ -40,9 +40,9 @@ export const getCinemaByProvince = async (params: {
 }): Promise<{ rows: Cinema[]; total?: number }> => {
   const res = await apiClient.get<ApiResponse<Cinema>>(
     "/rap/tinh",
-    {
+    
       params
-    }
+    
   )
 
   return res.data

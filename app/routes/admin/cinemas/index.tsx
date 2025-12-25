@@ -411,7 +411,7 @@ export default function CinemasPage() {
                 initialData={editing ?? undefined}
                 chains={chains.filter(c => c.id !== 0)}
             />
-             {/* <Outlet /> */}
+           
         </>
     )
 }

@@ -37,20 +37,46 @@ export default function Login() {
         body: JSON.stringify(data),
         credentials: "include",
       })
+
       if (!res.ok) {
         setError("Tên đăng nhập hoặc mật khẩu sai")
         return
       }
+
       const json = await res.json()
-      login(json.user)
-      setTimeout(() => {
-        const role = json.user.role.toLowerCase()
-        navigate(role === "admin" ? "/admin" : "/")
-      }, 0)
+      console.log("LOGIN RESPONSE:", json)
+
+      const account = json.account
+   
+      login(account) // lưu vào store
+
+      const role = account.role
+      
+      switch (role) {
+        case "ADMIN":
+          navigate("/admin")
+          break
+
+        case "MANAGER":
+          if (account.cinemaId) {
+            navigate(`/admin/cinemas/${account.cinemaId}/rooms`)
+          } else {
+            navigate("/forbidden")
+          }
+          break
+
+        case "MODERATOR":
+          navigate("/admin/movie")
+          break
+
+        default:
+          navigate("/forbidden")
+      }
     } catch (err) {
       setError("Không thể kết nối đến server.")
     }
   }
+
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-blue-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">

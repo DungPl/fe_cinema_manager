@@ -1,105 +1,106 @@
-// src/app/components/layouts/Navbar.tsx  ←  CẬP NHẬT MỚI NHẤT 11/11/2025 09:19
+// src/components/layouts/Navbar.tsx
 
-import { Link } from "react-router-dom"
+import { useState, useRef, useEffect } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { User, LogOut, Sun, Moon } from "lucide-react"
+import classNames from "classnames"
+
 import { useAuthStore } from "~/stores/authAccountStore"
-import { Bell, MessageSquare, LogOut, User, Moon, Sun } from "lucide-react"
-//import { useTheme } from "next-themes" // nếu dùng next-themes, hoặc tự viết toggle
+import { useThemeStore } from "~/stores/themeStore"
 
 export function Navbar() {
-const account = useAuthStore(state => state.account)
-  // const { theme, setTheme } = useTheme() // bỏ comment nếu dùng next-themes
+  const navigate = useNavigate()
+  const { account, logout } = useAuthStore()
+  const { theme, toggleTheme } = useThemeStore()
+
+  const [openUserMenu, setOpenUserMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const isDark = theme === "dark"
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenUserMenu(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const handleLogout = () => {
+    logout()
+    navigate("/login")
+  }
 
   return (
-    <nav className="main-header navbar navbar-expand navbar-white navbar-light border-b">
-      {/* Left navbar links */}
-      <ul className="navbar-nav">
-        <li className="nav-item">
-          <a className="nav-link" data-widget="pushmenu" href="#" role="button">
-            <i className="fas fa-bars"></i>
-          </a>
-        </li>
-        <li className="nav-item d-none d-sm-inline-block">
-          <Link to="/admin" className="nav-link">Trang chủ</Link>
-        </li>
-        <li className="nav-item d-none d-sm-inline-block">
-          <a href="#" className="nav-link">Hỗ trợ</a>
-        </li>
-      </ul>
+    <header
+      className={classNames(
+        "w-full h-14 flex items-center justify-end px-4 border-b z-40",
+        {
+          "bg-white border-gray-200 text-gray-800": !isDark,
+          "bg-gray-900 border-gray-800 text-gray-100": isDark,
+        }
+      )}
+    >
+      {/* RIGHT */}
+      <div className="relative flex items-center gap-2" ref={menuRef}>
+        {/* Theme */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          {isDark ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
 
-      {/* Right navbar links */}
-      <ul className="navbar-nav ml-auto">
-        {/* Dark mode toggle */}
-        <li className="nav-item">
-          <button
-            // onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="nav-link btn btn-link"
+        {/* User */}
+        <button
+          onClick={() => setOpenUserMenu(!openUserMenu)}
+          className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <img
+            src="/avatar.png"
+            className="w-8 h-8 rounded-full"
+            alt="avatar"
+          />
+          <span className="hidden md:block text-sm font-medium">
+            {account?.username}
+          </span>
+        </button>
+
+        {openUserMenu && (
+          <div
+            className={classNames(
+              "absolute right-0 top-12 w-48 rounded shadow border",
+              {
+                "bg-white border-gray-200": !isDark,
+                "bg-gray-900 border-gray-800": isDark,
+              }
+            )}
           >
-            <Sun className="h-5 w-5 block dark:hidden" />
-            <Moon className="h-5 w-5 hidden dark:block" />
-          </button>
-        </li>
+            <div className="px-4 py-2 text-xs text-gray-500 border-b dark:border-gray-700">
+              {account?.role}
+            </div>
 
-        {/* Messages Dropdown */}
-        <li className="nav-item dropdown">
-          <a className="nav-link" data-toggle="dropdown" href="#">
-            <MessageSquare className="h-5 w-5" />
-            <span className="badge badge-danger navbar-badge">3</span>
-          </a>
-          <div className="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-            <span className="dropdown-item dropdown-header">3 Tin nhắn</span>
-            <div className="dropdown-divider"></div>
-            <a href="#" className="dropdown-item">
-              <i className="fas fa-envelope mr-2"></i> Khách hàng phản hồi vé
-              <span className="float-right text-muted text-sm">3 phút</span>
-            </a>
-            {/* thêm tin nhắn... */}
-          </div>
-        </li>
-
-        {/* Notifications Dropdown */}
-        <li className="nav-item dropdown">
-          <a className="nav-link" data-toggle="dropdown" href="#">
-            <Bell className="h-5 w-5" />
-            <span className="badge badge-warning navbar-badge">15</span>
-          </a>
-          <div className="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-            <span className="dropdown-item dropdown-header">15 Thông báo</span>
-            <div className="dropdown-divider"></div>
-            <a href="#" className="dropdown-item">
-              <i className="fas fa-film mr-2"></i> Phim mới: Deadpool 3
-              <span className="float-right text-muted text-sm">2 giờ</span>
-            </a>
-            {/* thêm thông báo... */}
-          </div>
-        </li>
-
-        {/* User Dropdown */}
-        <li className="nav-item dropdown">
-          <a className="nav-link" data-toggle="dropdown" href="#">
-            <img 
-              src="/avatar.png" 
-              alt="Admin" 
-              className="img-circle elevation-2" 
-              style={{ width: 32, height: 32 }} 
-            />
-          </a>
-          <div className="dropdown-menu dropdown-menu-right">
-            <span className="dropdown-item dropdown-header">
-              {account?.username || "Admin"}
-            </span>
-            <div className="dropdown-divider"></div>
-            <Link to="/admin/profile" className="dropdown-item">
-              <User className="h-4 w-4 mr-2" />
-              Hồ sơ cá nhân
+            <Link
+              to="/admin/profile"
+              onClick={() => setOpenUserMenu(false)}
+              className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <User size={16} />
+              Hồ sơ
             </Link>
-            <div className="dropdown-divider"></div>
-            <Link to="/authen/logout" className="dropdown-item text-danger">
-              <LogOut className="h-4 w-4 mr-2" />
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 w-full px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              <LogOut size={16} />
               Đăng xuất
-            </Link>
+            </button>
           </div>
-        </li>
-      </ul>
-    </nav>
+        )}
+      </div>
+    </header>
   )
 }

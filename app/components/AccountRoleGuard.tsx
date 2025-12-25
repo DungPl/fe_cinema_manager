@@ -1,6 +1,6 @@
 import {  useEffect, useState } from "react"
 import type { ReactNode } from "react"
-import { Navigate, useLocation } from "react-router-dom"
+import {  useLocation,useNavigate } from "react-router-dom"
 import { useAuthStore } from "~/stores/authAccountStore"
 
 interface AccountRoleGuardProps {
@@ -12,6 +12,7 @@ export function AccountRoleGuard({
   children,
   allow,
 }: AccountRoleGuardProps) {
+    const navigate = useNavigate()
   const location = useLocation()
   const account = useAuthStore(state => state.account)
   const [checking, setChecking] = useState(true)
@@ -23,17 +24,13 @@ export function AccountRoleGuard({
   if (checking) return null
   if (!account) {
     return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location }}
-      />
+       navigate("/login")
     )
   }
 
   // ❌ SAI ROLE
   if (!allow.includes(account.role)) {
-    return <Navigate to="/forbidden" replace />
+     navigate("/forbidden")
   }
 
   // ✅ OK
