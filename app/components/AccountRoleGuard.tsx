@@ -24,7 +24,7 @@ export function AccountRoleGuard({
   if (checking) return null
   if (!account) {
     return (
-       navigate("/login")
+       navigate("/admin/login")
     )
   }
 

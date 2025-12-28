@@ -180,98 +180,99 @@ export default function SeatMap({
 
   // Toggle ghế + xử lý ghế đôi
   const toggleSeat = async (seat: BookingSeat) => {
-    const isMyHold = seat.status === "HELD" && seat.heldBy === heldBy
-    const isSelected = selectedSeats.some(s => s.id === seat.id)
+  const isMyHold = seat.status === "HELD" && seat.heldBy === heldBy
+  const isSelected = selectedSeats.some(s => s.id === seat.id)
 
-    if (seat.status === "BOOKED") return
-    if (seat.status === "HELD" && !isMyHold) return
+  if (seat.status === "BOOKED") return
+  if (seat.status === "HELD" && !isMyHold) return
 
-    try {
-      let seatIdsToToggle: number[] = [seat.id]
-      let coupleSeats: BookingSeat[] = [seat]
+  try {
+    let seatIdsToToggle: number[] = [seat.id]
+    let coupleSeats: BookingSeat[] = [seat]
 
-      // Nếu là ghế đôi (type COUPLE hoặc có coupleId)
-      if (seat.type === "COUPLE" || seat.coupleId) {
-        const coupleSeat = seats
-          .flatMap(row => row.seats)
-          .find(s => s.coupleId === seat.coupleId && s.id !== seat.id)
+    // Xử lý ghế đôi
+    if (seat.type === "COUPLE" || seat.coupleId) {
+      const coupleSeat = seats
+        .flatMap(row => row.seats)
+        .find(s => s.coupleId === seat.coupleId && s.id !== seat.id)
 
-        if (coupleSeat) {
-          if (coupleSeat.status === "BOOKED" || (coupleSeat.status === "HELD" && coupleSeat.heldBy !== heldBy)) {
-            toast.warning("Không thể chọn ghế đôi vì ghế kia đã được chọn hoặc hết hạn.")
-            return
-          }
-          seatIdsToToggle.push(coupleSeat.id)
-          coupleSeats.push(coupleSeat)
-        } else {
-          toast.warning("Không tìm thấy ghế đôi còn lại!")
+      if (coupleSeat) {
+        if (coupleSeat.status === "BOOKED" || (coupleSeat.status === "HELD" && coupleSeat.heldBy !== heldBy)) {
+          toast.warning("Không thể chọn ghế đôi vì ghế kia đã được chọn hoặc hết hạn.")
           return
         }
-      }
-
-      if (isSelected) {
-        // Bỏ chọn (release cả cặp)
-        await releaseSeats(code, { seatIds: seatIdsToToggle, heldBy })
-        const newSelected = selectedSeats.filter(s => !seatIdsToToggle.includes(s.id))
-        onChange(newSelected)
-
-        // Lưu lại ghế đã chọn
-        localStorage.setItem("selected_seats", JSON.stringify(newSelected.map(s => s.id)))
-
-        setSeats(prev => prev.map(row => ({
-          ...row,
-          seats: row.seats.map(s => seatIdsToToggle.includes(s.id) ? { ...s, status: "AVAILABLE" as SeatStatus, heldBy: "" } : s)
-        })))
-
-        if (newSelected.length === 0) {
-          setHeldBy("")
-          localStorage.removeItem("seat_session")
-          localStorage.removeItem("seat_expire")
-          localStorage.removeItem("selected_seats")
-          setExpiresAt(null)
-          setTimeLeft(0)
-        }
+        seatIdsToToggle.push(coupleSeat.id)
+        coupleSeats.push(coupleSeat)
       } else {
-        // Chọn (hold cả cặp)
-        if (selectedSeats.length + seatIdsToToggle.length > 10) {
-          toast.warning("Tối đa 10 ghế")
-          return
-        }
-
-        const res = await holdSeats(code, { seatIds: seatIdsToToggle })
-
-        if (!heldBy && res.sessionId) {
-          setHeldBy(res.sessionId)
-          localStorage.setItem("seat_session", res.sessionId)
-          localStorage.setItem("seat_expire", res.expiresAt)
-          setExpiresAt(res.expiresAt)
-          const expireDate = new Date(res.expiresAt)
-          setTimeLeft(Math.floor((expireDate.getTime() - Date.now()) / 1000))
-        }
-
-        setSeats(prev => prev.map(row => ({
-          ...row,
-          seats: row.seats.map(s => seatIdsToToggle.includes(s.id) ? { ...s, status: "HELD" as SeatStatus, heldBy: res.sessionId || heldBy } : s)
-        })))
-
-        const newSelected = [
-          ...selectedSeats,
-          ...coupleSeats.map(s => ({
-            ...s,
-            status: "HELD" as SeatStatus,
-            heldBy: res.sessionId || heldBy,
-          }))
-        ]
-        onChange(newSelected)
-
-        // Lưu lại ghế đã chọn
-        localStorage.setItem("selected_seats", JSON.stringify(newSelected.map(s => s.id)))
+        toast.warning("Không tìm thấy ghế đôi còn lại!")
+        return
       }
-    } catch (err) {
-      toast.error("Không thể xử lý ghế")
-      console.error(err)
     }
+
+    if (isSelected) {
+      // Bỏ chọn (release)
+      if (!heldBy) {
+        toast.warning("Không có session để release")
+        return
+      }
+      await releaseSeats(code, { seatIds: seatIdsToToggle, heldBy })
+      const newSelected = selectedSeats.filter(s => !seatIdsToToggle.includes(s.id))
+      onChange(newSelected)
+
+      localStorage.setItem("selected_seats", JSON.stringify(newSelected.map(s => s.id)))
+
+      setSeats(prev => prev.map(row => ({
+        ...row,
+        seats: row.seats.map(s => seatIdsToToggle.includes(s.id) ? { ...s, status: "AVAILABLE" as SeatStatus, heldBy: "" } : s)
+      })))
+
+      if (newSelected.length === 0) {
+        setHeldBy("")
+        localStorage.removeItem("seat_session")
+        localStorage.removeItem("seat_expire")
+        localStorage.removeItem("selected_seats")
+        setExpiresAt(null)
+        setTimeLeft(0)
+      }
+    } else {
+      // Chọn (hold)
+      if (selectedSeats.length + seatIdsToToggle.length > 10) {
+        toast.warning("Tối đa 10 ghế")
+        return
+      }
+
+      const res = await holdSeats(code, { seatIds: seatIdsToToggle })
+
+      const newHeldBy = res.heldBy || heldBy
+      setHeldBy(newHeldBy)
+      localStorage.setItem("seat_session", newHeldBy)
+      localStorage.setItem("seat_expire", res.expiresAt)
+      setExpiresAt(res.expiresAt)
+      const expireDate = new Date(res.expiresAt)
+      setTimeLeft(Math.floor((expireDate.getTime() - Date.now()) / 1000))
+
+      setSeats(prev => prev.map(row => ({
+        ...row,
+        seats: row.seats.map(s => seatIdsToToggle.includes(s.id) ? { ...s, status: "HELD" as SeatStatus, heldBy: newHeldBy } : s)
+      })))
+
+      const newSelected = [
+        ...selectedSeats,
+        ...coupleSeats.map(s => ({
+          ...s,
+          status: "HELD" as SeatStatus,
+          heldBy: newHeldBy,
+        }))
+      ]
+      onChange(newSelected)
+
+      localStorage.setItem("selected_seats", JSON.stringify(newSelected.map(s => s.id)))
+    }
+  } catch (err: any) {
+    toast.error(err.message || "Không thể xử lý ghế")
+    console.error(err)
   }
+}
 
   if (error) return <div className="text-red-500 text-center">{error}</div>
 

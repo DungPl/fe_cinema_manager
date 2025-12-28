@@ -51,7 +51,7 @@ export default function PaymentPage() {
     try {
       const seatIds = paymentInfo.selectedSeats.map((s: any) => Number(s.id))
 
-      await purchaseSeats(code!, {
+      const res = await purchaseSeats(code!, {
         seatIds,
         heldBy: paymentInfo.heldBy,
         name,
@@ -59,18 +59,22 @@ export default function PaymentPage() {
         email,
       })
 
+      // Clear state sau thanh toán thành công
       localStorage.removeItem("paymentInfo")
       localStorage.removeItem("seat_session")
       localStorage.removeItem("seat_expire")
       localStorage.removeItem("selected_seats")
 
-      navigate("/success")
+      // Redirect sang trang thành công (dùng orderCode từ response)
+      navigate(`/dat-ve/thanh-cong/${res.order.PublicCode}`)
     } catch (err: any) {
       setError(err.message || "Thanh toán thất bại. Ghế có thể đã hết hạn hoặc lỗi hệ thống.")
     } finally {
       setLoading(false)
     }
   }
+
+ 
 
   const handleBack = () => {
     navigate(`/dat-ve/${code}`) // Quay lại trang chọn ghế

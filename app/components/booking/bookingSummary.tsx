@@ -9,6 +9,7 @@ import { Badge } from "~/components/ui/badge"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "~/components/ui/alert"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table"
+import { useAuthStore } from "~/stores/authCustomerStore"
 
 interface BookingSummaryProps {
   code: string
@@ -25,11 +26,12 @@ export default function BookingSummary({
 }: BookingSummaryProps) {
   const navigate = useNavigate()
   const [discountCode, setDiscountCode] = useState("")
-  const [name, setName] = useState("")
-  const [phone, setPhone] = useState("")
-  const [email, setEmail] = useState("")
+   const { customer } = useAuthStore()
+  const [name, setName] = useState(customer?.username || customer?.email.split("@")[0] || "")
+  const [phone, setPhone] = useState(customer?.phone || "")
+  const [email, setEmail] = useState(customer?.email || "")
   const [error, setError] = useState<string | null>(null)
-
+ 
   // Tính giá theo suất chiếu + modifier, ghế đôi chỉ tính 1 lần
   const calculatePrice = () => {
     const basePrice = showtime.price || 50000 // Giá suất chiếu
@@ -90,7 +92,7 @@ export default function BookingSummary({
 
   const grouped = groupedSeats()
 
-  const handleProceedToPayment = () => {
+  const handleProceedToPayment = async () => {
     if (selectedSeats.length === 0) {
       setError("Vui lòng chọn ít nhất một ghế")
       return
@@ -120,8 +122,8 @@ export default function BookingSummary({
       totalAmount: total,
       basePrice: showtime.price || 50000,
     }
-    localStorage.setItem("paymentInfo", JSON.stringify(paymentInfo))
 
+    localStorage.setItem("paymentInfo", JSON.stringify(paymentInfo))
     navigate(`/payment/${code}`)
   }
 
@@ -192,25 +194,33 @@ export default function BookingSummary({
         </div>
 
         {/* Thông tin cá nhân */}
-        <div className="space-y-4">
+       <div className="space-y-4">
           <h4 className="font-semibold text-lg">Thông tin liên hệ</h4>
           <Input
             placeholder="Họ và tên"
             value={name}
             onChange={e => setName(e.target.value)}
+            disabled={!!customer}
           />
           <Input
             type="tel"
             placeholder="Số điện thoại"
             value={phone}
             onChange={e => setPhone(e.target.value)}
+            disabled={!!customer}
           />
           <Input
             type="email"
             placeholder="Email"
             value={email}
             onChange={e => setEmail(e.target.value)}
+            disabled={!!customer}
           />
+          {customer && (
+            <p className="text-sm text-muted-foreground">
+              Bạn đang đăng nhập với {customer.email}
+            </p>
+          )}
         </div>
 
         {/* Error */}

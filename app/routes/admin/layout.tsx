@@ -1,76 +1,73 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { Sidebar } from "~/components/layouts/Sidebar";
-import { Navbar } from "~/components/layouts/Navbar";
-import { ROUTE_PERMISSIONS } from "~/lib/permission";
-import { useAuthStore } from "~/stores/authAccountStore";
-import { useSidebarStore } from "~/stores/sidebarStore";
-import { toast } from "sonner";
-import type { UserRole } from "~/lib/api/types";
+// routes/admin/layout.tsx
+import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom"
+import { Sidebar } from "~/components/layouts/Sidebar"
+import { Navbar } from "~/components/layouts/Navbar"
+import { ROUTE_PERMISSIONS } from "~/lib/permission"
+import { useAuthStore } from "~/stores/authAccountStore"
+import { useSidebarStore } from "~/stores/sidebarStore"
+import { toast } from "sonner"
+import type { UserRole } from "~/lib/api/types"
 
 export default function AdminLayout() {
-  const { account } = useAuthStore();
-  const { collapsed } = useSidebarStore();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const { account, loading } = useAuthStore()
+  const { collapsed } = useSidebarStore()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const sidebarWidth = collapsed ? 80 : 256
 
-  const sidebarWidth = collapsed ? 80 : 256;
-
-  useEffect(() => {
-  if (!account) {
-    navigate("/login", { replace: true });
-    return;
+  // Kiểm tra ngay trong render (sync)
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Đang tải...</div>
   }
 
-  const currentPath = location.pathname;
+  // Chưa đăng nhập → redirect NGAY LẬP TỨC
+  if (!account) {
+    return <Navigate to="/admin/login" replace />
+  }
 
-  // Kiểm tra quyền chung cho tất cả route admin
-  let allowedRoles: UserRole[] | undefined;
+  const role = account.role as UserRole
 
-  // Tìm route khớp (bỏ qua :cinemaId)
+  // Chỉ cho ADMIN, MANAGER, MODERATOR vào layout admin
+  const allowedRoles: UserRole[] = ["ADMIN", "MANAGER", "MODERATOR"]
+  if (!allowedRoles.includes(role)) {
+    toast.error("Bạn không có quyền truy cập khu vực này.")
+    return <Navigate to="/forbidden" replace />
+  }
+
+  // Manager: Redirect nếu vào route không thuộc rạp của mình
+  if (role === "MANAGER" && account.cinemaId) {
+    const cinemaIdMatch = location.pathname.match(/\/cinemas\/(\d+)/)
+    if (cinemaIdMatch && Number(cinemaIdMatch[1]) !== account.cinemaId) {
+      toast.error("Bạn chỉ được quản lý rạp của mình.")
+      navigate(`/admin/cinemas/${account.cinemaId}/rooms`, { replace: true })
+      return null
+    }
+  }
+
+  // STAFF: Redirect sang quầy vé
+  if (role === "STAFF") {
+    navigate("/staff/create-ticket", { replace: true })
+    return null
+  }
+
+  // Kiểm tra chi tiết route permissions (từ ROUTE_PERMISSIONS)
+  const currentPath = location.pathname
+  let matchedRoles: UserRole[] | undefined
+
   const matchedRoute = Object.entries(ROUTE_PERMISSIONS).find(([path]) =>
-    currentPath.startsWith(path.replace("/:cinemaId", "").replace(/:\w+/g, "")) // Xử lý :param
-  );
+    currentPath.startsWith(path.replace(/:\w+/g, "*"))
+  )
 
   if (matchedRoute) {
-    allowedRoles = matchedRoute[1];
+    matchedRoles = matchedRoute[1]
   }
 
-  // Nếu route không có trong permissions → chặn (trừ route đặc biệt)
-  if (!allowedRoles) {
-    // Cho phép Manager vào /admin/cinemas/:cinemaId/rooms
-    if (currentPath.match(/\/admin\/cinemas\/\d+\/rooms$/)) {
-      allowedRoles = ["ADMIN", "MANAGER"];
-    } else {
-      toast.error("Bạn không có quyền truy cập trang này.");
-      navigate("/forbidden", { replace: true });
-      return;
-    }
+  if (matchedRoles && !matchedRoles.includes(role)) {
+    toast.error("Bạn không có quyền truy cập trang này.")
+    return <Navigate to="/forbidden" replace />
   }
 
-  // Kiểm tra role
-  if (!allowedRoles.includes(account.role)) {
-    toast.error("Bạn không có quyền truy cập trang này.");
-    navigate("/forbidden", { replace: true });
-    return;
-  }
-
-  // Đặc biệt cho Manager: chỉ cho xem rạp của mình
-  if (account.role === "MANAGER") {
-    const cinemaIdMatch = currentPath.match(/\/cinemas\/(\d+)/);
-    if (cinemaIdMatch) {
-      const requestedCinemaId = Number(cinemaIdMatch[1]);
-      if (requestedCinemaId !== account.cinemaId) {
-        toast.error("Bạn chỉ được quản lý rạp của mình.");
-        navigate("/forbidden", { replace: true });
-        return;
-      }
-    }
-  }
-}, [account, location.pathname, navigate]);
-
-  if (!account) return null;
-
+  // Render layout bình thường
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Sidebar */}
@@ -103,5 +100,5 @@ export default function AdminLayout() {
         </footer>
       </main>
     </div>
-  );
+  )
 }

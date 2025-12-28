@@ -237,6 +237,7 @@ export interface HoldSeatResponse {
   heldSeatIds: number[]
   expiresAt: string
   sessionId?: string // chỉ có khi guest
+  heldBy?:string
 }
 export interface ReleaseSeatRequest {
   seatIds: number[]
@@ -253,7 +254,17 @@ export interface PurchaseSeatsRequest {
 }
 
 export interface PurchaseSeatsResponse {
-  message: string;
+  order: {
+    PublicCode: string
+    totalAmount: number
+    // ... các trường khác nếu cần
+  }
+  tickets: Array<{
+    ticketCode: string
+    // ... nếu backend trả QR
+  }>
+  message: string
+  emailSent: boolean
 }
 export type SeatsByRowResponse = Record<string, {
   id: number
@@ -360,7 +371,7 @@ export interface Movie {
   ageRestriction: string
   formats: Format[]
   dateSoon: string | null
-  dateRelease: string | null
+  dateRelease: string 
   dateEnd: string | null
   statusMovie: string
   isAvailable: boolean
@@ -533,7 +544,7 @@ export interface CinemaChainWithCount {
   logoUrl:string
 }
 
-export type UserRole = "ADMIN" | "MANAGER" | "MODERATOR"|"SELLER";
+export type UserRole = "ADMIN" | "MANAGER" | "MODERATOR" | "STAFF" ;
 export interface MovieShowtimeResponse {
   movie: Movie
   format?: string

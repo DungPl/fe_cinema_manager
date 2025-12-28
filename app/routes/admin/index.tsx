@@ -1,33 +1,51 @@
-import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+// routes/admin/index.tsx
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import {
   Building2, Store, DoorOpen, Film, Users, Calendar,
-  Ticket, DollarSign, TrendingUp, Clock,
-  Popcorn
-} from "lucide-react";
-import { useAuthStore } from "~/stores/authAccountStore";
-import { formatCurrency, formatNumber } from "~/lib/utils";
-import { getAdminStats } from "~/lib/api/statisticApi";
-import { useEffect, useState } from "react";
+  Ticket, DollarSign, TrendingUp, Clock, Popcorn
+} from "lucide-react"
+import { useAuthStore } from "~/stores/authAccountStore"
+import { formatCurrency, formatNumber } from "~/lib/utils"
+import { getAdminStats } from "~/lib/api/statisticApi"
+import { toast } from "sonner"
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<any>(null);
-  const { account } = useAuthStore();
-  const isManager = account?.role === "MANAGER";
+  const navigate = useNavigate()
+  const { account, isManager } = useAuthStore()
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Manager → redirect sang trang rạp của họ
+    if (isManager && account?.cinemaId) {
+      navigate(`/admin/cinemas/${account.cinemaId}`)
+      return // Không load dashboard chung
+    }
+
+    // Admin → load stats chung
     const fetchStats = async () => {
       try {
-        const data = await getAdminStats();
-        setStats(data);
+        const data = await getAdminStats()
+        setStats(data)
       } catch (err) {
-        console.error(err);
+        toast.error("Lỗi tải dữ liệu dashboard")
+        console.error(err)
+      } finally {
+        setLoading(false)
       }
-    };
-    fetchStats();
-  }, []);
+    }
+    fetchStats()
+  }, [isManager, account?.cinemaId, navigate])
 
-  if (!stats) return <p className="p-8">Đang tải dữ liệu...</p>;
+  if (isManager && account?.cinemaId) {
+    return null // Đang redirect → không render gì
+  }
+
+  if (loading) return <div className="flex items-center justify-center min-h-screen">Đang tải...</div>
+
+  if (!stats) return <div className="p-8 text-center text-red-500">Không thể tải dữ liệu</div>
 
   const statCards = [
     {
@@ -38,7 +56,6 @@ export default function AdminDashboard() {
       text: "text-green-700",
       bg: "bg-green-200",
       border: "border-green-300",
-      visible: true,
     },
     {
       title: "Vé bán hôm nay",
@@ -48,7 +65,6 @@ export default function AdminDashboard() {
       text: "text-blue-700",
       bg: "bg-blue-200",
       border: "border-blue-300",
-      visible: true,
     },
     {
       title: "Suất chiếu sắp tới (24h)",
@@ -58,7 +74,6 @@ export default function AdminDashboard() {
       text: "text-purple-700",
       bg: "bg-purple-200",
       border: "border-purple-300",
-      visible: true,
     },
     {
       title: "Tăng trưởng trung bình",
@@ -68,11 +83,11 @@ export default function AdminDashboard() {
       text: "text-orange-700",
       bg: "bg-orange-200",
       border: "border-orange-300",
-      visible: true,
     },
-  ];
+  ]
 
   const menuCards = [
+    // Chỉ ADMIN thấy chuỗi rạp & danh sách rạp tổng
     {
       title: "Chuỗi rạp",
       icon: Building2,
@@ -81,7 +96,7 @@ export default function AdminDashboard() {
       gradient: "from-emerald-500 to-teal-600",
       iconColor: "text-emerald-500",
       textColor: "text-emerald-600",
-      visible: !isManager, // Chỉ Admin thấy
+      visible: !isManager,
     },
     {
       title: "Rạp chiếu",
@@ -91,12 +106,13 @@ export default function AdminDashboard() {
       gradient: "from-blue-500 to-cyan-600",
       iconColor: "text-blue-500",
       textColor: "text-blue-600",
-      visible: !isManager, // Chỉ Admin thấy danh sách rạp
+      visible: !isManager,
     },
+    // Phòng chiếu: Manager link đến rạp của mình
     {
       title: "Phòng chiếu",
       icon: DoorOpen,
-      to: isManager && account.cinemaId
+      to: isManager && account?.cinemaId
         ? `/admin/cinemas/${account.cinemaId}/rooms`
         : "/admin/rooms",
       count: stats.rooms,
@@ -128,14 +144,16 @@ export default function AdminDashboard() {
     {
       title: "Lịch chiếu",
       icon: Calendar,
-      to: "/admin/showtime",
+      to: isManager && account?.cinemaId
+        ? `/admin/showtime?cinemaId=${account.cinemaId}`
+        : "/admin/showtime",
       count: stats.upcomingShows,
       gradient: "from-pink-500 to-rose-600",
       iconColor: "text-pink-500",
       textColor: "text-pink-600",
       visible: true,
     },
-  ];
+  ]
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -153,37 +171,33 @@ export default function AdminDashboard() {
 
         {/* Small Boxes */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statCards
-            .filter(card => card.visible)
-            .map((card) => {
-              const isPositive = card.growth > 0;
-              const isZero = card.growth === 0;
-
-              return (
-                <Card
-                  key={card.title}
-                  className={`hover:shadow-2xl transition-all duration-300 transform hover:scale-105 border-2 ${card.border} ${card.bg} rounded-lg`}
-                >
-                  <CardHeader className={`flex flex-row items-center justify-between pb-2 rounded-t-lg`}>
-                    <CardTitle className="text-sm font-medium text-gray-600">
-                      {card.title}
-                    </CardTitle>
-                    <card.icon className={`w-6 h-6 ${card.text}`} />
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <div className="text-3xl font-bold text-gray-900">
-                      {card.value}
-                    </div>
-                    <div className="flex items-center mt-3 text-sm">
-                      <span className={`flex items-center font-semibold ${isPositive ? "text-green-600" : card.growth < 0 ? "text-red-600" : "text-gray-500"}`}>
-                        {isPositive ? "Up" : card.growth < 0 ? "Down" : "Flat"} {Math.abs(card.growth).toFixed(1)}%
-                      </span>
-                      <span className="text-gray-500 ml-2">so với hôm qua</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          {statCards.map((card) => {
+            const isPositive = card.growth > 0
+            return (
+              <Card
+                key={card.title}
+                className={`hover:shadow-2xl transition-all duration-300 transform hover:scale-105 border-2 ${card.border} ${card.bg} rounded-lg`}
+              >
+                <CardHeader className={`flex flex-row items-center justify-between pb-2 rounded-t-lg`}>
+                  <CardTitle className="text-sm font-medium text-gray-600">
+                    {card.title}
+                  </CardTitle>
+                  <card.icon className={`w-6 h-6 ${card.text}`} />
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="text-3xl font-bold text-gray-900">
+                    {card.value}
+                  </div>
+                  <div className="flex items-center mt-3 text-sm">
+                    <span className={`flex items-center font-semibold ${isPositive ? "text-green-600" : card.growth < 0 ? "text-red-600" : "text-gray-500"}`}>
+                      {isPositive ? "Up" : card.growth < 0 ? "Down" : "Flat"} {Math.abs(card.growth).toFixed(1)}%
+                    </span>
+                    <span className="text-gray-500 ml-2">so với hôm qua</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
 
         {/* Menu Cards */}
@@ -193,7 +207,6 @@ export default function AdminDashboard() {
             .map((item) => (
               <Link to={item.to} key={item.title}>
                 <Card className="group p-6 hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer border-2 border-transparent hover:border-gray-300 relative overflow-hidden bg-white">
-                  {/* Gradient nền khi hover */}
                   <div className={`absolute inset-0 bg-linear-to-r ${item.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300`} />
 
                   <CardContent className="flex items-center space-x-5 relative z-10">
@@ -247,5 +260,5 @@ export default function AdminDashboard() {
         </div>
       </main>
     </div>
-  );
+  )
 }

@@ -94,3 +94,51 @@ export const getShowtimesByMovie = async (params: {
 
   return res.data
 }
+
+export const searchMovies = async (params: {
+  q?: string;
+}): Promise<Movie[]> => {
+  try {
+    const res = await apiClient.get<ApiResponse<Movie[]>>("/phim/search", 
+      params,
+    );
+    return res.data ?? []; // Trả về mảng phim, fallback []
+  } catch (error) {
+    console.error("Lỗi tìm kiếm phim:", error);
+    return []; // Trả về mảng rỗng nếu lỗi
+  }
+};
+
+export const searchCinemas = async (params: {
+  q?: string;
+}): Promise<Cinema[]> => {
+  try {
+    const res = await apiClient.get<ApiResponse<Cinema[]>>("/rap/search", 
+      params,
+    );
+    return res.data ?? []; // Trả về mảng phim, fallback []
+  } catch (error) {
+    console.error("Lỗi tìm kiếm rạp:", error);
+    return []; // Trả về mảng rỗng nếu lỗi
+  }
+};
+
+export const getMoviesByStatus = async (status: string): Promise<Movie[]> => {
+  try {
+    const res = await apiClient.get<ApiResponse<Movie[]>>(`/phim/status/${status}`)
+    return res.data?? []
+  } catch (error) {
+    console.error(`Lỗi lấy phim ${status}:`, error)
+    return []
+  }
+}
+
+export const getMovieGenres = async (): Promise<string[]> => {
+  try {
+    const res = await apiClient.get<ApiResponse<string[]>>("/phim/genres")
+    return res.data ?? []
+  } catch (error) {
+    console.error("Lỗi lấy thể loại phim:", error)
+    return []
+  }
+}

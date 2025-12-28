@@ -4,12 +4,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useNavigate } from "react-router-dom"
-import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
-import { Button } from "../../components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../components/ui/card"
+import { Input } from "~/components/ui/input"
+import { Label } from "~/components/ui/label"
+import { Button } from "~/components/ui/button"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "~/components/ui/card"
 import { User, Lock, Eye, EyeOff, LogIn } from "lucide-react"
-import { useAuthStore } from "../../stores/authAccountStore"
+import { useAuthStore } from "~/stores/authAccountStore"
+import { toast } from "sonner"
 
 const loginSchema = z.object({
   username: z.string().min(3, "Tên đăng nhập ít nhất 3 ký tự"),
@@ -23,13 +24,20 @@ export default function Login() {
   const { login } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
   })
 
   const onSubmit = async (data: LoginForm) => {
     setError("")
+    setIsLoading(true)
+
     try {
       const res = await fetch("http://localhost:8002/api/v1/auth/login", {
         method: "POST",
@@ -39,7 +47,8 @@ export default function Login() {
       })
 
       if (!res.ok) {
-        setError("Tên đăng nhập hoặc mật khẩu sai")
+        const json = await res.json()
+        setError(json.message || "Tên đăng nhập hoặc mật khẩu sai")
         return
       }
 
@@ -47,11 +56,12 @@ export default function Login() {
       console.log("LOGIN RESPONSE:", json)
 
       const account = json.account
-   
-      login(account) // lưu vào store
+
+      login(account) // Lưu vào store
 
       const role = account.role
-      
+
+      // Redirect theo role
       switch (role) {
         case "ADMIN":
           navigate("/admin")
@@ -61,6 +71,7 @@ export default function Login() {
           if (account.cinemaId) {
             navigate(`/admin/cinemas/${account.cinemaId}/rooms`)
           } else {
+            toast.error("Quản lý chưa được gán rạp")
             navigate("/forbidden")
           }
           break
@@ -69,14 +80,22 @@ export default function Login() {
           navigate("/admin/movie")
           break
 
+        case "STAFF":
+          navigate("/staff/create-ticket")
+          break
+
         default:
           navigate("/forbidden")
       }
+
+      toast.success("Đăng nhập thành công")
     } catch (err) {
-      setError("Không thể kết nối đến server.")
+      console.error(err)
+      setError("Không thể kết nối đến server. Vui lòng thử lại.")
+    } finally {
+      setIsLoading(false)
     }
   }
-
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-blue-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
@@ -93,19 +112,19 @@ export default function Login() {
 
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600 text-center">{error}</p>}
 
             <div className="space-y-2">
               <Label htmlFor="username">Tên đăng nhập</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <div className="relative!">
+                <User className="absolute! left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   id="username"
                   type="text"
                   placeholder="admin123"
                   className="pl-10!"
                   {...register("username")}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoading}
                   autoFocus
                 />
               </div>
@@ -122,12 +141,13 @@ export default function Login() {
                   placeholder="••••••"
                   className="pl-10! pr-10"
                   {...register("password")}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-3 text-gray-400 hover:text-gray-700"
+                  disabled={isSubmitting || isLoading}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -135,8 +155,8 @@ export default function Login() {
               {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
             </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
+            <Button type="submit" className="w-full" disabled={isSubmitting || isLoading}>
+              {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
             </Button>
           </form>
         </CardContent>

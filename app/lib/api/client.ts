@@ -30,17 +30,20 @@ class ApiClient {
     this.failedQueue = []
   }
 
- private logout() {
-  if (isBrowser) {
-    toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
+  private logout() {
+    if (isBrowser) {
+      toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
 
-    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
-    document.cookie = "refresh_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/"
+      localStorage.removeItem("accessToken")
+      localStorage.removeItem("refreshToken")
 
-    window.dispatchEvent(new Event("auth:logout"))
-    window.location.href = "/login"
+      const isAdmin = window.location.pathname.startsWith("/admin")
+      const redirectUrl = isAdmin ? "/admin/login" : "/login"
+
+      window.dispatchEvent(new Event("auth:logout"))
+      window.location.href = redirectUrl
+    }
   }
-}
 
 
   // Hàm request chính – có xử lý refresh token
@@ -51,90 +54,88 @@ class ApiClient {
   ): Promise<T> {
     const url = this.buildUrl(endpoint, params)
 
-    const headers = new Headers(config.headers);
+    const headers = new Headers(config.headers)
 
     if (!(config.body instanceof FormData)) {
-      headers.set("Content-Type", "application/json");
+      headers.set("Content-Type", "application/json")
     }
+
+    // TỰ ĐỘNG THÊM TOKEN VÀO HEADER
+    const token = localStorage.getItem("accessToken")
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`)
+    }
+
     let response = await fetch(url, {
       ...config,
       credentials: "include",
-      headers
-
+      headers,
     })
 
-    // ĐỌC BODY 1 LẦN DUY NHẤT → lưu vào biến
     let data: any
     try {
       data = await response.json()
     } catch {
-      data = null // nếu không phải JSON
+      data = null
     }
 
-    // XỬ LÝ REFRESH TOKEN
-    // CHỈ REFRESH TOKEN KHI Ở BROWSER (có cookie)
-    if (response.status === 401) {
-      if (isBrowser) {
-        // Chỉ thử refresh token khi có cookie (tức là đang ở browser)
-        if (!this.isRefreshing) {
-          this.isRefreshing = true
-          try {
-            const refreshResponse = await fetch(`${API_BASE}/auth/refresh-token`, {
-              method: "POST",
-              credentials: "include",
-            })
+    // Xử lý refresh token khi 401
+    if (response.status === 401 && isBrowser) {
+      if (!this.isRefreshing) {
+        this.isRefreshing = true
+        try {
+          const isAdmin = window.location.pathname.startsWith("/admin")
+          const refreshEndpoint = isAdmin 
+            ? "/admin/refresh-token" 
+            : "/khach-hang/refresh-token"
 
-            if (refreshResponse.ok) {
-              const retryHeaders = new Headers(config.headers);
-              if (!(config.body instanceof FormData)) {
-                retryHeaders.set("Content-Type", "application/json");
-              }
-
-              response = await fetch(url, {
-                ...config,
-                credentials: "include",
-                headers: retryHeaders,
-
-              })
-              data = await response.json()
-              this.processQueue(null, data)
-            } else {
-              throw new Error("Refresh failed")
-            }
-          } catch {
-            this.processQueue(new Error("Refresh failed"))
-            this.logout()
-            throw new Error("Unauthorized")
-          } finally {
-            this.isRefreshing = false
-          }
-        } else {
-          // Đang refresh → chờ
-          await new Promise((resolve, reject) => {
-            this.failedQueue.push({ resolve, reject })
+          const refreshResponse = await fetch(`${API_BASE}${refreshEndpoint}`, {
+            method: "POST",
+            credentials: "include",
           })
-          response = await fetch(url, { ...config, credentials: "include" })
-          data = await response.json()
+
+          if (refreshResponse.ok) {
+            const retryHeaders = new Headers(config.headers)
+            if (!(config.body instanceof FormData)) {
+              retryHeaders.set("Content-Type", "application/json")
+            }
+
+            response = await fetch(url, {
+              ...config,
+              credentials: "include",
+              headers: retryHeaders,
+            })
+            data = await response.json()
+            this.processQueue(null, data)
+          } else {
+            throw new Error("Refresh failed")
+          }
+        } catch {
+          this.processQueue(new Error("Refresh failed"))
+          this.logout()
+          throw new Error("Unauthorized")
+        } finally {
+          this.isRefreshing = false
         }
       } else {
-        // ĐANG CHẠY TRÊN SERVER (loader) → KHÔNG THỂ REFRESH → CHỈ NÉM LỖI
-        throw new Response("Unauthorized", { status: 401 })
+        await new Promise((resolve, reject) => {
+          this.failedQueue.push({ resolve, reject })
+        })
+        response = await fetch(url, { ...config, credentials: "include" })
+        data = await response.json()
       }
     }
 
-    // Dùng data đã đọc thay vì đọc lại response.json()
     if (!response.ok) {
-      const errorMessage = data?.message || data?.error || "Request failed"
-      throw new Error(errorMessage)
+      throw {
+        response: {
+          status: response.status,
+          data,
+        },
+      }
     }
 
-    // Nếu vẫn 401 sau refresh
-    if (response.status === 401) {
-      this.logout()
-      throw new Error("Unauthorized")
-    }
-
-    return data as T;
+    return data as T
   }
 
   // GET – có query params

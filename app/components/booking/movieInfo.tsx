@@ -26,7 +26,7 @@ export default function MovieInfo({ showtime }: { showtime: Showtime }) {
         </h2>
 
         <p className="text-sm text-muted-foreground">
-          {showtime.format} • {showtime.Room.name} • {showtime.Room.cinema.name}
+          {showtime.format}  • {showtime.Room.cinema.name}
         </p>
 
         <p className="text-sm">

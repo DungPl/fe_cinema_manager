@@ -1,11 +1,10 @@
-import { useState } from "react"
-import { NavLink, useNavigate } from "react-router-dom"
+// components/Navbar.tsx
+import { useNavigate, NavLink } from "react-router-dom"
 import {
   Film,
   Search,
   Bell,
   Ticket,
-  Home,
   MapPin,
 } from "lucide-react"
 
@@ -21,20 +20,32 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar"
 
 import { CinemaDialog } from "./CinemaDialog"
-import { getCinemas } from "~/lib/api/cinemaApi"
 import slugify from "slugify"
-import { useAuthStore } from "~/stores/authCustomerStore"
+import { useAuthStore } from "~/stores/authCustomerStore" // Import store
+import { useState } from "react"
 
 export default function Navbar() {
   const navigate = useNavigate()
 
+  const { customer, logoutCustomer } = useAuthStore() // Lấy user và logout từ store
+
   const [searchQuery, setSearchQuery] = useState("")
   const [openCinema, setOpenCinema] = useState(false)
   const [selectedCinema, setSelectedCinema] = useState<any>(null)
-  const user = useAuthStore((s) => s.customer)
-  const logout = useAuthStore((s) => s.logoutCustomer)
 
-  const bookings: any[] = [] // demo
+  // Xử lý tìm kiếm
+  const handleSearch = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
+    }
+  }
+
+  // Xử lý logout
+  const handleLogout = () => {
+    logoutCustomer() // Gọi logout từ store (xóa token, set customer null)
+    navigate("/login")
+  }
 
   return (
     <>
@@ -42,7 +53,7 @@ export default function Navbar() {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
 
-            {/* ---------- Logo ---------- */}
+            {/* Logo */}
             <button
               onClick={() => navigate("/")}
               className="flex items-center gap-3 hover:opacity-80"
@@ -60,10 +71,8 @@ export default function Navbar() {
               </div>
             </button>
 
-            {/* ---------- Main Nav ---------- */}
+            {/* Main Nav */}
             <nav className="hidden md:flex items-center gap-4">
-
-              {/* Rạp */}
               <Button
                 variant="ghost"
                 className="gap-2"
@@ -73,17 +82,7 @@ export default function Navbar() {
                 {selectedCinema ? selectedCinema.name : "Rạp"}
               </Button>
 
-              {/* Lịch chiếu */}
-              {/* <NavLink to="/lich-chieu">
-                {({ isActive }) => (
-                  <Button variant={isActive ? "default" : "ghost"}>
-                    Lịch chiếu
-                  </Button>
-                )}
-              </NavLink> */}
-
-              {/* Phim */}
-              <NavLink to="/movies">
+              <NavLink to="/phim">
                 {({ isActive }) => (
                   <Button variant={isActive ? "default" : "ghost"}>
                     Phim
@@ -92,39 +91,52 @@ export default function Navbar() {
               </NavLink>
             </nav>
 
-            {/* ---------- Search ---------- */}
-            <div className="flex-1 max-w-lg hidden lg:block">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Tìm phim, rạp chiếu..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10!"
-                />
-              </div>
-            </div>
-
-            {/* ---------- Right actions ---------- */}
-            <div className="flex items-center gap-2">
-
-              {/* <NavLink to="/">
-                <Button variant="ghost" size="icon">
-                  <Home className="w-5 h-5" />
+            {/* Search */}
+            <form
+              onSubmit={handleSearch}
+              className="flex-1 max-w-lg hidden lg:flex items-center relative"
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Tìm phim, rạp chiếu..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10! pr-10"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch()
+                  }
+                }}
+              />
+              {searchQuery && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2"
+                  onClick={() => {
+                    setSearchQuery("")
+                    navigate("/")
+                  }}
+                >
+                  ✕
                 </Button>
-              </NavLink> */}
+              )}
+            </form>
 
-              <NavLink to="/my-tickets">
+            {/* Right actions */}
+            <div className="flex items-center gap-2">
+              <NavLink to="/ve-cua-toi">
                 <Button variant="ghost" size="icon" className="relative">
                   <Ticket className="w-5 h-5" />
-                  {bookings.length > 0 && (
-                    <Badge
-                      variant="destructive"
-                      className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs"
-                    >
-                      {bookings.length}
-                    </Badge>
-                  )}
+                  {/* {bookings.length > 0 && ( */}
+                  {/*   <Badge */}
+                  {/*     variant="destructive" */}
+                  {/*     className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs" */}
+                  {/*   > */}
+                  {/*     {bookings.length} */}
+                  {/*   </Badge> */}
+                  {/* )} */}
                 </Button>
               </NavLink>
 
@@ -132,28 +144,25 @@ export default function Navbar() {
                 <Bell className="w-5 h-5" />
               </Button>
 
-             
-              {/* User */}
-              {user ? (
+              {/* User / Login */}
+              {customer ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="gap-2 px-2">
                       <Avatar className="w-8 h-8">
                         <AvatarImage
-                          src={user.avatarUrl || undefined}
-                          alt={user.username}
+                          src={customer.avatarUrl || undefined}
+                          alt={customer.username}
                         />
                         <AvatarFallback>
-                          {(
-                            user.firstname ||
-                            user.username ||
-                            user.email ||
-                            "U"
-                          )
+                          {(customer.username || customer.email || "U")
                             .charAt(0)
                             .toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
+                      <span className="hidden sm:block font-medium">
+                        {customer.username || customer.email.split("@")[0]}
+                      </span>
                     </Button>
                   </DropdownMenuTrigger>
 
@@ -161,13 +170,9 @@ export default function Navbar() {
                     <DropdownMenuItem onClick={() => navigate("/profile")}>
                       Tài khoản
                     </DropdownMenuItem>
-
                     <DropdownMenuItem
                       className="text-red-600"
-                      onClick={() => {
-                        logout()
-                        navigate("/login")
-                      }}
+                      onClick={handleLogout}
                     >
                       Đăng xuất
                     </DropdownMenuItem>
@@ -178,15 +183,11 @@ export default function Navbar() {
                   Đăng nhập
                 </Button>
               )}
-
-
-
             </div>
           </div>
         </div>
       </header>
 
-      {/* ---------- Cinema Dialog ---------- */}
       <CinemaDialog
         open={openCinema}
         onOpenChange={setOpenCinema}

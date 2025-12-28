@@ -12,4 +12,5 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   "/admin/movie": ["ADMIN", "MODERATOR"],
   "/admin/movie/actors": ["ADMIN", "MODERATOR"],
   "/admin/movie/directors": ["ADMIN", "MODERATOR"],
+  "/admin/staff/create_ticket":["STAFF"]
 };

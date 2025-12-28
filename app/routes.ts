@@ -23,19 +23,45 @@ export default [
         path: "payment/:code",  // ← Thêm dòng này
         file: "routes/public/payment/[code].tsx",  // ← Trỏ đến file phim chi tiết
       },
+      {
+        path: "search",
+        file: "routes/public/search.tsx",
+      },
+      {
+        path: "phim",
+        file: "routes/public/phim.tsx",
+      },
+      {
+        path: "login",
+        file: "routes/public/login.tsx",
+      },
+      {
+        path: "register",
+        file: "routes/public/register.tsx"
+      },
+      {
+        path: "dat-ve/thanh-cong/:orderCode",
+        file: "routes/public/dat-ve/thanh-cong/[orderCode].tsx"
+      },
+      {
+        path: "ve-cua-toi",
+        file: "routes/public/ve-cua-toi.tsx"
+      },
     ]
   },
 
   // Auth
-  { path: "/login", file: "routes/authen/login.tsx" },
-  //{ path: "/register", file: "routes/authen/register.tsx" },
 
+  //{ path: "/register", file: "routes/authen/register.tsx" },
+  { path: "/admin/login", file: "routes/admin/login.tsx" },
   // Admin
   {
     path: "/admin",
     file: "routes/admin/layout.tsx",
     children: [
+
       { path: "", file: "routes/admin/index.tsx" },
+
       {
         path: "cinema-chains",
         file: "routes/admin/cinema_chains/index.tsx",
@@ -63,10 +89,17 @@ export default [
       {
         path: "showtime",
         file: "routes/admin/showtime/index.tsx"
-      }
+      },
     ],
   },
-
+  {
+    path: "/staff",
+    file: "routes/admin/staff/layout.tsx", // Layout riêng cho staff nếu cần
+    children: [
+      { path: "create-ticket", file: "routes/admin/staff/create-ticket.tsx" },
+      // { path: "check-in", file: "routes/admin/staff/check-in.tsx" },
+    ],
+  },
   // Manager
   // {
   //   path: "/manager",

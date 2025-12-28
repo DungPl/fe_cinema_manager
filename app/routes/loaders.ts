@@ -18,7 +18,7 @@ export function requireAuth(requiredRole?: string) {
     const token = localStorage.getItem("access_token")
     const role = localStorage.getItem("role")
 
-    if (!token) return redirect("/login")
+    if (!token) return redirect("/admin/login")
     if (requiredRole && role !== requiredRole) return redirect("/forbidden")
 
     return { user: { role } }

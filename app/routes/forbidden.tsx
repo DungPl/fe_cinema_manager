@@ -19,7 +19,7 @@ export default function Forbidden() {
             <Link to="/">Quay về trang chủ</Link>
           </Button>
           <Button variant="outline" >
-            <Link to="/login">Đăng nhập lại</Link>
+            <Link to="/admin/login">Đăng nhập lại</Link>
           </Button>
 
         </div>

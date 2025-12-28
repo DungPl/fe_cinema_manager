@@ -16,7 +16,7 @@ export const ManagerProtectedRoute: React.FC<ManagerProtectedRouteProps> = ({ ch
   // Không phải Manager → chặn
   if (!isManager) {
     toast.error("Bạn không có quyền truy cập khu vực này.");
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
 
   // Manager → kiểm tra cinemaId có khớp không

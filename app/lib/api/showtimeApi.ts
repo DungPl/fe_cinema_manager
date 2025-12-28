@@ -160,3 +160,19 @@ export const updateShowtime = async (showtimeId: number, data: UpdateShowtime): 
 export const deleteShowtime = async (id: number) => {
   return apiClient.delete(`/showtime/${id}`);
 };
+
+
+export interface StaffShowtime {
+  id: number
+  publicCode: string
+  movieTitle: string
+  startTime: string
+}
+export const getStaffShowtimes = async (): Promise<StaffShowtime[]> => {
+  const res = await apiClient.get<{
+    success: boolean
+    data: StaffShowtime[]
+  }>("/showtime/staff")
+
+  return res.data
+}

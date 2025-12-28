@@ -63,7 +63,7 @@ export default function CinemaRoomsPage() {
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || "Không tải được dữ liệu");
-      if (err?.status === 401) navigate("/login");
+      if (err?.status === 401) navigate("/admin/login");
     } finally {
       setLoading(false);
     }
