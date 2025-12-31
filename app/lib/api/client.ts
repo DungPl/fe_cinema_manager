@@ -1,5 +1,6 @@
 // ~/lib/api/client.ts
 import { toast } from "sonner"
+import { useAuthStore } from "~/stores/authAccountStore";
 
 const API_BASE = "http://localhost:8002/api/v1"
 const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
@@ -31,19 +32,22 @@ class ApiClient {
   }
 
   private logout() {
-    if (isBrowser) {
-      toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
+  if (!isBrowser) return
 
-      localStorage.removeItem("accessToken")
-      localStorage.removeItem("refreshToken")
+  toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
 
-      const isAdmin = window.location.pathname.startsWith("/admin")
-      const redirectUrl = isAdmin ? "/admin/login" : "/login"
+  localStorage.clear()
 
-      window.dispatchEvent(new Event("auth:logout"))
-      window.location.href = redirectUrl
-    }
-  }
+  window.dispatchEvent(new Event("auth:logout"))
+
+  const currentRole = useAuthStore.getState().account?.role
+  const redirectUrl = currentRole === "ADMIN" || currentRole === "MANAGER" || currentRole === "MODERATOR"
+    ? "/admin/login"
+    : "/login"
+
+  window.location.assign(redirectUrl)
+}
+
 
 
   // Hàm request chính – có xử lý refresh token

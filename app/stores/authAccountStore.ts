@@ -1,4 +1,4 @@
-// ~/stores/authAccountStore.ts
+// src/stores/authAccountStore.ts
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import type { UserRole } from "~/lib/api/types"
@@ -12,40 +12,58 @@ export interface Account {
 
 interface AuthState {
   account: Account | null
-  loading: boolean
   login: (account: Account) => void
   logout: () => void
   isAdmin: boolean
   isManager: boolean
   isModerator: boolean
   isTicketSeller: boolean
+  isLoading: boolean  // Thêm
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       account: null,
-      loading: true,
-      login: (account) => set({ account }),
-      logout: () => set({ account: null }),
+      isAdmin: false,
+      isManager: false,
+      isModerator: false,
+      isTicketSeller: false,
+      isLoading: true,  // Bắt đầu loading
 
-      // Computed getters (sử dụng get() để truy cập state hiện tại)
-      get isAdmin() {
-        return get().account?.role === "ADMIN"
+      login: (account) => {
+        set({
+          account,
+          isAdmin: account.role === "ADMIN",
+          isManager: account.role === "MANAGER",
+          isModerator: account.role === "MODERATOR",
+          isTicketSeller: account.role === "STAFF",
+          isLoading: false,
+        })
       },
-      get isManager() {
-        return get().account?.role === "MANAGER"
-      },
-      get isModerator() {
-        return get().account?.role === "MODERATOR"
-      },
-      get isTicketSeller() {
-        return get().account?.role === "STAFF"
+
+      logout: () => {
+        set({
+          account: null,
+          isAdmin: false,
+          isManager: false,
+          isModerator: false,
+          isTicketSeller: false,
+          isLoading: false,
+        })
       },
     }),
     {
-      name: "auth-account", // Tên key trong localStorage
-      partialize: (state) => ({ account: state.account }), // Chỉ lưu account
+      name: "auth-account",
+      partialize: (state) => ({ account: state.account }),
+      onRehydrateStorage: () => {
+        // Khi load xong từ storage
+        return (state) => {
+          if (state) {
+            state.isLoading = false
+          }
+        }
+      },
     }
   )
 )

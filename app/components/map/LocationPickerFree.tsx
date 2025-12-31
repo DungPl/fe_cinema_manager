@@ -1,53 +1,36 @@
 // components/map/LocationPickerFree.tsx
 import { useState, useEffect } from "react"
 import { Loader2, MapPin } from "lucide-react"
+import { toast } from "sonner"
+
 function normalizeVNAddress(input: string) {
   return input
-    .replace(/^\d+\s*/g, "") // ❌ bỏ số nhà đầu dòng
+    .replace(/\b(tầng|lầu|floor)\s*\d+(\s*&\s*\d+)?/gi, "")
+    .replace(/\b(toà nhà|tòa nhà|building)\s*[^\d,]+/gi, "")
+    .replace(/&/g, " ")
     .replace(/\bĐ\.\s*/gi, "Đường ")
     .replace(/\bP\.\s*/gi, "Phường ")
     .replace(/\bQ\.\s*/gi, "Quận ")
-    .replace(/\bTP\.\s*/gi, "Thành phố ")
+    .replace(/\bTP\.\s*/gi, "Hồ Chí Minh")
+    .replace(/\s+/g, " ")
     .trim()
 }
 
+function parseVietmapAddress(item: any) {
+  const boundaries = item.boundaries || []
 
-function parseOSMAddress(addr: any) {
+  const wardObj = boundaries.find((b: any) => b.type === 2)
+  const districtObj = boundaries.find((b: any) => b.type === 1)
+  const provinceObj = boundaries.find((b: any) => b.type === 0)
+
   return {
-    house_number: addr.house_number || "",
-
-    street:
-      addr.road ||
-      addr.street ||
-      addr.pedestrian ||
-      addr.path ||
-      "",
-
-    // PHƯỜNG
-    ward:
-      addr.suburb ||
-      addr.neighbourhood ||
-      addr.quarter ||
-      "",
-
-    // QUẬN / HUYỆN
-    district:
-      addr.city_district ||
-      addr.district ||
-      addr.county ||
-      "",
-
-    // TỈNH / THÀNH PHỐ
-    province:
-      addr.city ||
-      addr.town ||
-      addr.state ||
-      addr.province ||
-      addr.region ||
-      "",
+    house_number: item.name?.split(" ")[0] || "",
+    street: item.name || "",
+    ward: wardObj ? wardObj.full_name || wardObj.name || "" : "",
+    district: districtObj ? districtObj.full_name || districtObj.name || "" : "",
+    province: provinceObj ? provinceObj.full_name || provinceObj.name || "" : "",
   }
 }
-
 
 interface LocationData {
   house_number: string
@@ -71,49 +54,89 @@ export function LocationPickerFree({ onLocationSelect }: Props) {
   const [loading, setLoading] = useState(false)
 
   const searchAddress = async (q: string) => {
-    if (q.trim().length < 3) {
+    if (q.trim().length < 2) {
       setSuggestions([])
       return
     }
-    const normalized = normalizeVNAddress(q)
+
+    let normalized = normalizeVNAddress(q)
+
+    // Loại bỏ phần lặp tỉnh/thành phố thừa ở cuối
+    normalized = normalized.replace(/([,\s]+Hồ Chí Minh)+$/i, ", Hồ Chí Minh")
+    normalized = normalized.replace(/([,\s]+Thành phố Hồ Chí Minh)+$/i, "")
+
+    // Nếu query quá dài, ưu tiên phần đầu (số nhà + đường + phường/quận)
+    if (normalized.length > 100) {
+      const parts = normalized.split(",")
+      normalized = parts.slice(0, 3).join(",").trim()
+    }
+
     setLoading(true)
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          normalized
-        )}&countrycodes=vn&limit=6&addressdetails=1&accept-language=vi`
+        `http://localhost:8002/api/vietmap/autocomplete?text=${encodeURIComponent(normalized)}`
       )
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`)
+      }
+
       const data = await res.json()
-      setSuggestions(data)
+
+      // Debug tạm thời – có thể xóa sau khi ổn định
+      console.log("Vietmap v3 response:", data)
+
+      setSuggestions(Array.isArray(data) ? data : [])
     } catch (err) {
-      console.error("Nominatim error:", err)
+      console.error("Vietmap proxy error:", err)
+      setSuggestions([])
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    const timer = setTimeout(() => searchAddress(query), 600)
+    const timer = setTimeout(() => searchAddress(query), 400)
     return () => clearTimeout(timer)
   }, [query])
 
-  const handleSelect = (item: any) => {
-    const parsed = parseOSMAddress(item.address || {})
-    const result: LocationData = {
-      house_number: parsed.house_number,
-      street: parsed.street,
-      ward: parsed.ward,
-      district: parsed.district,
-      province: parsed.province,
-      fullAddress: item.display_name,
-      latitude: Number(item.lat),
-      longitude: Number(item.lon),
+  const handleSelect = async (item: any) => {
+    const parsed = parseVietmapAddress(item)
+
+    let fullAddr = item.display?.trim() ||
+      [item.name?.trim(), item.address?.trim()].filter(Boolean).join(", ").replace(/,\s*$/, "")
+
+    // Nếu có ref_id → gọi API place để lấy tọa độ chính xác
+    if (item.ref_id) {
+      try {
+        const res = await fetch(`http://localhost:8002/api/vietmap/place?refid=${item.ref_id}`)
+        if (res.ok) {
+          const placeData = await res.json()
+          const latitude = Number(placeData.lat)
+          const longitude = Number(placeData.lng)
+
+          if (!isNaN(latitude) && !isNaN(longitude) && latitude !== 0 && longitude !== 0) {
+            const result: LocationData = {
+              ...parsed,
+              fullAddress: placeData.display || fullAddr,
+              latitude,
+              longitude,
+            }
+
+            setSelectedAddr(result.fullAddress)
+            setQuery("")
+            setSuggestions([])
+            onLocationSelect(result)
+            return
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi lấy tọa độ từ Place API:", err)
+      }
     }
 
-    setSelectedAddr(item.display_name)
-    setQuery("")
-    setSuggestions([])
-    onLocationSelect(result)
+    // Fallback nếu không có ref_id hoặc lỗi → thông báo không chọn được
+    toast.error("Địa chỉ này chưa có tọa độ chính xác. Vui lòng chọn địa chỉ khác hoặc thử lại.")
   }
 
   return (
@@ -124,7 +147,7 @@ export function LocationPickerFree({ onLocationSelect }: Props) {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="VD: Lotte Cinema Thăng Long, CGV Vincom Hà Nội..."
+          placeholder="Gõ số nhà + tên đường, ví dụ: 62 Trần Quang Khải, Lotte Landmark..."
           className="w-full pl-11 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
         />
         {loading && <Loader2 className="absolute right-3 top-4 animate-spin text-blue-600 w-5 h-5" />}
@@ -138,9 +161,9 @@ export function LocationPickerFree({ onLocationSelect }: Props) {
               onClick={() => handleSelect(s)}
               className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors"
             >
-              <p className="font-medium text-sm">{s.display_name.split(",")[0]}</p>
+              <p className="font-medium text-sm">{s.name}</p>
               <p className="text-xs text-gray-500 truncate">
-                {s.display_name.split(",").slice(1).join(",")}
+                {s.display || s.address || "Việt Nam"}
               </p>
             </button>
           ))}

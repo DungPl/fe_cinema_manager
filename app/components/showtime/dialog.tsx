@@ -123,10 +123,37 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [moviesRes] = await Promise.all([
+                const [nowRes, soonRes] = await Promise.all([
                     getMovies({ showingStatus: "NOW_SHOWING" }),
-                ]);
-                setMovies(moviesRes.rows);
+                    getMovies({ showingStatus: "COMING_SOON" }),
+                ])
+
+                const movieMap = new Map<number, Movie>()
+
+                // Ưu tiên thêm NOW_SHOWING trước (thông tin đầy đủ hơn)
+                nowRes.rows.forEach(movie => {
+                    movieMap.set(movie.id, movie)
+                })
+
+                // Sau đó thêm COMING_SOON (chỉ thêm nếu chưa có)
+                soonRes.rows.forEach(movie => {
+                    if (!movieMap.has(movie.id)) {
+                        movieMap.set(movie.id, movie)
+                    }
+                })
+
+                const uniqueMovies = Array.from(movieMap.values())
+
+                // Sắp xếp: phim đang chiếu lên trước, sau đó đến phim sắp chiếu
+                uniqueMovies.sort((a, b) => {
+                    const aIsNow = nowRes.rows.some(m => m.id === a.id)
+                    const bIsNow = nowRes.rows.some(m => m.id === b.id)
+                    if (aIsNow && !bIsNow) return -1
+                    if (!aIsNow && bIsNow) return 1
+                    return a.title.localeCompare(b.title)
+                })
+
+                setMovies(uniqueMovies)
                 // Fetch all cinemas with paging
                 let allCinemas: Cinema[] = [];
                 let page = 1;

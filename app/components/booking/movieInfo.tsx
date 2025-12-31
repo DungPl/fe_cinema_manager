@@ -10,7 +10,7 @@ export default function MovieInfo({ showtime }: { showtime: Showtime }) {
     posters.find(p => p.isPrimary)?.url ||
     posters[0]?.url ||
     "/placeholder-poster.jpg"
-  console.log(showtime.Movie.posters)
+  //console.log(showtime.Movie.posters)
 
   return (
     <div className="flex gap-4 border-b pb-4">

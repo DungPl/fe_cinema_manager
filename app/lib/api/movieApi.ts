@@ -3,7 +3,7 @@ import { apiClient } from "./client"
 import type { Actor, ActorParams, ApiResponse, ApiResponseOne, Director, DirectorParams, Movie, PaginatedApiResponse, PaginatedMovieResponse, UploadResult } from "./types"
 
 // Lấy danh sách movie (có phân trang & search)
-export const getMovies = (params?: { page?: number; limit?: number; search?: string;  showingStatus?: "COMING_SOON" | "NOW_SHOWING" | "ENDED" }) => {
+export const getMovies = (params?: { page?: number; limit?: number; search?: string;   showingStatus?: "COMING_SOON" | "NOW_SHOWING" | "ENDED" }) => {
   return apiClient.get<PaginatedApiResponse<Movie>>("/movie", params)
     .then(res => ({
       rows: res.data.rows,

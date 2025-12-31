@@ -10,10 +10,11 @@ interface StaffSidebarProps {
 }
 
 export function StaffSidebar({ className }: StaffSidebarProps) {
-  const { collapsed } = useSidebarStore()
+  
   const location = useLocation()
   const { logout } = useAuthStore()
-
+  const { collapsed } = useSidebarStore()
+const sidebarWidth = collapsed ? 80 : 256
   const isActive = (to: string) => location.pathname.startsWith(to)
 
   return (

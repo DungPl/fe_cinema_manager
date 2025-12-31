@@ -13,9 +13,10 @@ import { useAuthStore } from "~/stores/authCustomerStore"
 
 interface BookingSummaryProps {
   code: string
-  showtime: Showtime
+  showtime: Showtime | null  // Cho phép null
   selectedSeats: BookingSeat[]
   heldBy: string
+  isStaff?: boolean
 }
 
 export default function BookingSummary({
@@ -23,23 +24,27 @@ export default function BookingSummary({
   showtime,
   selectedSeats,
   heldBy,
+  isStaff = false,
 }: BookingSummaryProps) {
   const navigate = useNavigate()
   const [discountCode, setDiscountCode] = useState("")
-   const { customer } = useAuthStore()
+  const { customer } = useAuthStore()
   const [name, setName] = useState(customer?.username || customer?.email.split("@")[0] || "")
   const [phone, setPhone] = useState(customer?.phone || "")
   const [email, setEmail] = useState(customer?.email || "")
   const [error, setError] = useState<string | null>(null)
- 
-  // Tính giá theo suất chiếu + modifier, ghế đôi chỉ tính 1 lần
+
+  // Tính giá an toàn với null
   const calculatePrice = () => {
-    const basePrice = showtime.price || 50000 // Giá suất chiếu
+    if (!showtime || showtime.price == null) {
+      return 0 // Không crash, trả về 0 nếu chưa có suất chiếu
+    }
+
+    const basePrice = showtime.price
     let total = 0
     const processedCouples = new Set<number>()
 
     selectedSeats.forEach(seat => {
-      // Nếu là ghế đôi và cặp đã được tính → bỏ qua
       if (seat.coupleId && processedCouples.has(seat.coupleId)) {
         return
       }
@@ -57,22 +62,22 @@ export default function BookingSummary({
 
   const total = calculatePrice()
 
-  // Nhóm ghế đôi để hiển thị
+  // Nhóm ghế để hiển thị
   const groupedSeats = () => {
     const result: { label: string; type: string; price: number }[] = []
     const processedCouples = new Set<number>()
 
     selectedSeats.forEach(seat => {
       if (seat.coupleId && processedCouples.has(seat.coupleId)) {
-        return // Bỏ qua ghế thứ 2
+        return
       }
-       const basePrice = showtime.price || 50000
+
+      const basePrice = showtime?.price || 50000 // fallback
       const modifier = seat.priceModifier || 1
       const price = basePrice * modifier
 
       let label = seat.label
       if (seat.coupleId) {
-        // Tìm ghế đôi còn lại
         const coupleSeat = selectedSeats.find(s => s.coupleId === seat.coupleId && s.id !== seat.id)
         if (coupleSeat) {
           label = `${seat.label} + ${coupleSeat.label}`
@@ -102,6 +107,12 @@ export default function BookingSummary({
       return
     }
 
+    // Nếu chưa có showtime → không cho thanh toán
+    if (!showtime) {
+      setError("Vui lòng chọn suất chiếu")
+      return
+    }
+
     const paymentInfo = {
       code,
       showtimeId: showtime.id,
@@ -127,6 +138,23 @@ export default function BookingSummary({
     navigate(`/payment/${code}`)
   }
 
+  // Guard clause: Nếu chưa chọn suất chiếu
+  if (!showtime) {
+    return (
+      <Card className="border-2 border-primary/20 shadow-lg">
+        <CardHeader className="bg-primary/5 pb-4">
+          <CardTitle className="text-xl font-bold text-center">
+            Tóm tắt đơn hàng
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center py-10 text-gray-500">
+          Vui lòng chọn suất chiếu để xem tóm tắt và tính giá
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Render đầy đủ khi có showtime
   return (
     <Card className="border-2 border-primary/20 shadow-lg">
       <CardHeader className="bg-primary/5 pb-4">
@@ -136,7 +164,7 @@ export default function BookingSummary({
       </CardHeader>
 
       <CardContent className="space-y-6 pt-6">
-        {/* Ghế đã chọn - Bảng chi tiết */}
+        {/* Ghế đã chọn */}
         <div className="space-y-3">
           <h4 className="font-semibold text-lg">Ghế đã chọn ({selectedSeats.length} ghế)</h4>
           {grouped.length > 0 ? (
@@ -179,7 +207,7 @@ export default function BookingSummary({
           )}
         </div>
 
-        {/* Form mã giảm giá */}
+        {/* Mã giảm giá */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Mã giảm giá</label>
           <div className="flex gap-2">
@@ -193,8 +221,8 @@ export default function BookingSummary({
           </div>
         </div>
 
-        {/* Thông tin cá nhân */}
-       <div className="space-y-4">
+        {/* Thông tin liên hệ */}
+        <div className="space-y-4">
           <h4 className="font-semibold text-lg">Thông tin liên hệ</h4>
           <Input
             placeholder="Họ và tên"
@@ -232,13 +260,22 @@ export default function BookingSummary({
         )}
 
         {/* Nút thanh toán */}
-        <Button
-          onClick={handleProceedToPayment}
-          className="w-full h-12 text-lg"
-          disabled={selectedSeats.length === 0}
-        >
-          Tiếp tục thanh toán
-        </Button>
+        {!isStaff && (
+          <Button
+            onClick={handleProceedToPayment}
+            className="w-full h-12 text-lg"
+            disabled={selectedSeats.length === 0}
+          >
+            Tiếp tục thanh toán
+          </Button>
+        )}
+
+ 
+        {isStaff && (
+          <div className="text-center text-sm text-gray-600 mt-4">
+            Nhân viên bán vé: Ghế sẽ được giữ đến khi tạo vé thủ công
+          </div>
+        )}
       </CardContent>
     </Card>
   )

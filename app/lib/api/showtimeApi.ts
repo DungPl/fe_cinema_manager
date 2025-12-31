@@ -167,6 +167,8 @@ export interface StaffShowtime {
   publicCode: string
   movieTitle: string
   startTime: string
+  posterUrl:string
+  price: number
 }
 export const getStaffShowtimes = async (): Promise<StaffShowtime[]> => {
   const res = await apiClient.get<{

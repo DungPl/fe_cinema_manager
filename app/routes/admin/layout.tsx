@@ -1,76 +1,76 @@
-// routes/admin/layout.tsx
-import { Outlet, useLocation, useNavigate, Navigate } from "react-router-dom"
-import { Sidebar } from "~/components/layouts/Sidebar"
-import { Navbar } from "~/components/layouts/Navbar"
-import { ROUTE_PERMISSIONS } from "~/lib/permission"
-import { useAuthStore } from "~/stores/authAccountStore"
-import { useSidebarStore } from "~/stores/sidebarStore"
-import { toast } from "sonner"
-import type { UserRole } from "~/lib/api/types"
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Sidebar } from "~/components/layouts/Sidebar";
+import { Navbar } from "~/components/layouts/Navbar";
+import { ROUTE_PERMISSIONS } from "~/lib/permission";
+import { useAuthStore } from "~/stores/authAccountStore";
+import { useSidebarStore } from "~/stores/sidebarStore";
+import { toast } from "sonner";
+import type { UserRole } from "~/lib/api/types";
 
 export default function AdminLayout() {
-  const { account, loading } = useAuthStore()
-  const { collapsed } = useSidebarStore()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const sidebarWidth = collapsed ? 80 : 256
+  const { account, isLoading } = useAuthStore();
+  const { collapsed } = useSidebarStore();
+  const location = useLocation();
 
-  // Kiểm tra ngay trong render (sync)
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Đang tải...</div>
+  const sidebarWidth = collapsed ? 80 : 256;
+  console.log("AdminLayout mount - isLoading:", isLoading, "account:", account);
+  // 1. Đang load auth → hiển thị loading (tránh flash)
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Đang kiểm tra đăng nhập...</div>;
   }
 
-  // Chưa đăng nhập → redirect NGAY LẬP TỨC
+  // 2. Chưa đăng nhập → redirect login
   if (!account) {
-    return <Navigate to="/admin/login" replace />
+    return <Navigate to="/admin/login" replace />;
+  }
+  if (account.role === "STAFF") {
+    toast.error("Nhân viên bán vé chỉ truy cập khu vực quầy vé.");
+    return <Navigate to="/staff/create-ticket" replace />;
+  }
+  // Từ đây chắc chắn đã login → kiểm tra quyền
+  const currentPath = location.pathname;
+
+  let allowedRoles: UserRole[] | undefined;
+
+  const matchedRoute = Object.entries(ROUTE_PERMISSIONS).find(([path]) =>
+    currentPath.startsWith(path.replace(/\/:cinemaId/, "").replace(/:\w+/g, ""))
+  );
+
+  if (matchedRoute) {
+    allowedRoles = matchedRoute[1];
   }
 
-  const role = account.role as UserRole
-
-  // Chỉ cho ADMIN, MANAGER, MODERATOR vào layout admin
-  const allowedRoles: UserRole[] = ["ADMIN", "MANAGER", "MODERATOR"]
-  if (!allowedRoles.includes(role)) {
-    toast.error("Bạn không có quyền truy cập khu vực này.")
-    return <Navigate to="/forbidden" replace />
-  }
-
-  // Manager: Redirect nếu vào route không thuộc rạp của mình
-  if (role === "MANAGER" && account.cinemaId) {
-    const cinemaIdMatch = location.pathname.match(/\/cinemas\/(\d+)/)
-    if (cinemaIdMatch && Number(cinemaIdMatch[1]) !== account.cinemaId) {
-      toast.error("Bạn chỉ được quản lý rạp của mình.")
-      navigate(`/admin/cinemas/${account.cinemaId}/rooms`, { replace: true })
-      return null
+  // Route không match → chặn (trừ route đặc biệt)
+  if (!allowedRoles) {
+    if (currentPath.match(/\/admin\/cinemas\/\d+\/rooms$/)) {
+      allowedRoles = ["ADMIN", "MANAGER"];
+    } else {
+      toast.error("Bạn không có quyền truy cập trang này.");
+      return <Navigate to="/forbidden" replace />;
     }
   }
 
-  // STAFF: Redirect sang quầy vé
-  if (role === "STAFF") {
-    navigate("/staff/create-ticket", { replace: true })
-    return null
+  // Kiểm tra role
+  if (!allowedRoles.includes(account.role)) {
+    toast.error("Bạn không có quyền truy cập trang này.");
+    return <Navigate to="/forbidden" replace />;
+  }
+  
+  // Manager chỉ xem rạp của mình
+  if (account.role === "MANAGER") {
+    const cinemaIdMatch = currentPath.match(/\/cinemas\/(\d+)/);
+    if (cinemaIdMatch) {
+      const requestedCinemaId = Number(cinemaIdMatch[1]);
+      if (requestedCinemaId !== account.cinemaId) {
+        toast.error("Bạn chỉ được quản lý rạp của mình.");
+        return <Navigate to="/forbidden" replace />;
+      }
+    }
   }
 
-  // Kiểm tra chi tiết route permissions (từ ROUTE_PERMISSIONS)
-  const currentPath = location.pathname
-  let matchedRoles: UserRole[] | undefined
-
-  const matchedRoute = Object.entries(ROUTE_PERMISSIONS).find(([path]) =>
-    currentPath.startsWith(path.replace(/:\w+/g, "*"))
-  )
-
-  if (matchedRoute) {
-    matchedRoles = matchedRoute[1]
-  }
-
-  if (matchedRoles && !matchedRoles.includes(role)) {
-    toast.error("Bạn không có quyền truy cập trang này.")
-    return <Navigate to="/forbidden" replace />
-  }
-
-  // Render layout bình thường
+  // Render layout
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Sidebar */}
       <aside
         className="fixed top-0 left-0 h-screen z-40 bg-white shadow-lg transition-all duration-300"
         style={{ width: `${sidebarWidth}px` }}
@@ -78,7 +78,6 @@ export default function AdminLayout() {
         <Sidebar />
       </aside>
 
-      {/* Navbar */}
       <header
         className="fixed top-0 right-0 h-14 z-30 bg-white shadow transition-all duration-300"
         style={{ left: `${sidebarWidth}px` }}
@@ -86,7 +85,6 @@ export default function AdminLayout() {
         <Navbar />
       </header>
 
-      {/* Main content */}
       <main
         className="pt-14 transition-all duration-300"
         style={{ marginLeft: `${sidebarWidth}px` }}
@@ -100,5 +98,5 @@ export default function AdminLayout() {
         </footer>
       </main>
     </div>
-  )
+  );
 }
