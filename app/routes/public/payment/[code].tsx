@@ -33,7 +33,7 @@ export default function PaymentPage() {
       return
     }
     setPaymentInfo(info)
-    setName(info.name || "")
+    setName(info.customer_name || "")
     setPhone(info.phone || "")
     setEmail(info.email || "")
   }, [code])
@@ -54,7 +54,7 @@ export default function PaymentPage() {
       const res = await purchaseSeats(code!, {
         seatIds,
         heldBy: paymentInfo.heldBy,
-        name,
+        customer_name: name,
         phone,
         email,
       })
@@ -68,13 +68,16 @@ export default function PaymentPage() {
       // Redirect sang trang thành công (dùng orderCode từ response)
       navigate(`/dat-ve/thanh-cong/${res.order.PublicCode}`)
     } catch (err: any) {
-      setError(err.message || "Thanh toán thất bại. Ghế có thể đã hết hạn hoặc lỗi hệ thống.")
+      const msg = err.response?.data?.message
+        || err.message
+        || "Thanh toán thất bại. Vui lòng thử lại."
+      setError(msg)
     } finally {
       setLoading(false)
     }
   }
 
- 
+
 
   const handleBack = () => {
     navigate(`/dat-ve/${code}`) // Quay lại trang chọn ghế

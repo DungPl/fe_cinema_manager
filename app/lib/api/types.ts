@@ -247,7 +247,7 @@ export type ReleaseSeatResponse = string
 export interface PurchaseSeatsRequest {
   seatIds: number[];
   heldBy: string;
-  name: string;
+  customer_name: string;
   phone: string;
   email: string;
   discountCode?: string;
@@ -504,6 +504,17 @@ export interface FilterShowtimeParams {
   limit?: number
   page?: number
 }
+
+
+export const LANGUAGE_LABELS: Record<LanguageType, string> = {
+  VI_SUB: "Phụ đề Việt",
+  VI_DUB: "Lồng tiếng Việt",
+  EN_SUB: "Phụ đề Anh",
+  EN_DUB: "Lồng tiếng Anh",
+}
+
+// Hàm tiện ích
+
 export interface CreateShowtimeBatchInput {
   movieId: number;
   roomIds: number[];

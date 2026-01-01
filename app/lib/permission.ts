@@ -3,7 +3,7 @@ import type { UserRole } from "~/lib/api/types";
 export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   // Admin routes
     
-  "/admin":["ADMIN","MANAGER"],
+  "/admin": ["ADMIN", "MANAGER", "MODERATOR"],
   "/admin/cinema-chains": ["ADMIN"],
   "/admin/cinemas": ["ADMIN", "MANAGER"],
   "/admin/cinemas/:cinemaId/rooms": ["ADMIN", "MANAGER"],

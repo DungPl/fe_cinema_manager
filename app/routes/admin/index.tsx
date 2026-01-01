@@ -7,7 +7,7 @@ import {
   Ticket, DollarSign, TrendingUp, Clock, Popcorn
 } from "lucide-react"
 import { useAuthStore } from "~/stores/authAccountStore"
-import { formatCurrency, formatNumber } from "~/lib/utils"
+import { cn, formatCurrency, formatNumber } from "~/lib/utils"
 import { getAdminStats } from "~/lib/api/statisticApi"
 import { toast } from "sonner"
 
@@ -112,19 +112,18 @@ export default function AdminDashboard() {
     {
       title: "Phòng chiếu",
       icon: DoorOpen,
-      to: isManager && account?.cinemaId
-        ? `/admin/cinemas/${account.cinemaId}/rooms`
-        : "/admin/rooms",
+      to: isManager && account?.cinemaId ? `/admin/cinemas/${account.cinemaId}/rooms` : undefined,
       count: stats.rooms,
       gradient: "from-purple-500 to-pink-600",
       iconColor: "text-purple-500",
       textColor: "text-purple-600",
       visible: true,
+      // Nếu to === undefined → Link sẽ không hoạt động (không clickable)
     },
     {
       title: "Phim",
       icon: Film,
-      to: "/admin/movies",
+      to: "/admin/movie",
       count: stats.movies,
       gradient: "from-orange-500 to-red-600",
       iconColor: "text-orange-500",
@@ -204,25 +203,62 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {menuCards
             .filter(item => item.visible)
-            .map((item) => (
-              <Link to={item.to} key={item.title}>
-                <Card className="group p-6 hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer border-2 border-transparent hover:border-gray-300 relative overflow-hidden bg-white">
-                  <div className={`absolute inset-0 bg-linear-to-r ${item.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300`} />
+            .map((item) => {
+              const isClickable = !!item.to // Có link → clickable
+
+              const cardContent = (
+                <Card
+                  className={cn(
+                    "group p-6 relative overflow-hidden bg-white border-2 border-transparent",
+                    // Chỉ thêm hover effect nếu clickable
+                    isClickable && "hover:shadow-2xl hover:scale-105 hover:border-gray-300 cursor-pointer transition-all duration-300",
+                    !isClickable && "cursor-default" // Không clickable → con trỏ mặc định
+                  )}
+                >
+                  {/* Gradient overlay chỉ khi clickable */}
+                  {isClickable && (
+                    <div className={`absolute inset-0 bg-linear-to-r ${item.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300`} />
+                  )}
 
                   <CardContent className="flex items-center space-x-5 relative z-10">
-                    <div className="p-3 rounded-full bg-gray-50 group-hover:bg-white transition-colors">
-                      <item.icon className={`h-10 w-10 ${item.iconColor} group-hover:scale-110 transition-transform`} />
+                    <div className={cn(
+                      "p-3 rounded-full transition-colors",
+                      isClickable ? "bg-gray-50 group-hover:bg-white" : "bg-gray-100"
+                    )}>
+                      <item.icon className={cn(
+                        "h-10 w-10 transition-transform",
+                        isClickable ? item.iconColor + " group-hover:scale-110" : item.iconColor + " opacity-80"
+                      )} />
                     </div>
                     <div className="space-y-1">
                       <h3 className="font-semibold text-gray-700 text-sm">{item.title}</h3>
                       <p className="text-3xl font-bold text-gray-900">
-                        {item.count}
+                        {item.count ?? "-"}
                       </p>
                     </div>
                   </CardContent>
+
+                  {/* Tooltip khi không clickable (chỉ Admin thấy) */}
+                  {!isClickable && (
+                    <div className="absolute inset-0 bg-black/5 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <p className="text-sm text-gray-600 font-medium">Xem theo rạp</p>
+                    </div>
+                  )}
                 </Card>
-              </Link>
-            ))}
+              )
+
+              // Nếu có link → bọc Link
+              // Nếu không → render card thường
+              return isClickable ? (
+                <Link to={item.to!} key={item.title}>
+                  {cardContent}
+                </Link>
+              ) : (
+                <div key={item.title}>
+                  {cardContent}
+                </div>
+              )
+            })}
         </div>
 
         {/* Quick Actions */}
