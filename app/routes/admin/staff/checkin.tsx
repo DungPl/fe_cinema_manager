@@ -30,7 +30,7 @@ export default function CheckinPage() {
         try {
             const res = await apiClient.post<ApiResponse<CheckinResponse>>(
                 "/staff/ticket/checkin",
-                { code }
+                { code:code.trim() }
             )
 
             toast.success(

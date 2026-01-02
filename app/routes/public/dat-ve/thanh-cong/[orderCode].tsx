@@ -36,7 +36,7 @@ export default function PaymentSuccess() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const res = await apiClient.get<ApiResponse<OrderSuccessData>>(`/don-hang/${orderCode}`)
+        const res = await apiClient.get<ApiResponse<OrderSuccessData>>(`/don-hang/thanh-cong/${orderCode}`)
         setOrder(res.data)
       } catch (err) {
         toast.error("Không thể tải thông tin đơn hàng")
