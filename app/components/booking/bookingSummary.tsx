@@ -1,5 +1,5 @@
 // components/booking/bookingSummary.tsx
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import type { Showtime, BookingSeat } from "~/lib/api/types"
 import { Button } from "~/components/ui/button"
@@ -31,6 +31,12 @@ interface BookingSummaryProps {
   selectedSeats: BookingSeat[]
   heldBy: string
   isStaff?: boolean
+  customerInfo?: {
+    name: string
+    phone: string
+    email: string
+  }
+  onCustomerInfoChange?: (info: { name: string; phone: string; email: string }) => void
   onProceedToPayment?: () => void  // Callback cho khách online
 }
 
@@ -46,6 +52,7 @@ export default function BookingSummary({
   heldBy,
   isStaff = false,
   onProceedToPayment,
+  onCustomerInfoChange
 }: BookingSummaryProps) {
   const navigate = useNavigate()
   const [discountCode, setDiscountCode] = useState("")
@@ -53,6 +60,13 @@ export default function BookingSummary({
   const [name, setName] = useState(customer?.username || customer?.email.split("@")[0] || "")
   const [phone, setPhone] = useState(customer?.phone || "")
   const [email, setEmail] = useState(customer?.email || "")
+  useEffect(() => {
+  onCustomerInfoChange?.({
+    name,
+    phone,
+    email,
+  })
+}, [name, phone, email, onCustomerInfoChange])
   const [error, setError] = useState<string | null>(null)
 
   // Tính giá an toàn
@@ -171,7 +185,7 @@ export default function BookingSummary({
       navigate(`/payment/${code}`)
     }
   }
-
+  
   if (!showtime) {
     return (
       <Card className="border-2 border-primary/20 shadow-lg">
@@ -244,37 +258,34 @@ export default function BookingSummary({
             </p>
           )}
         </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Mã giảm giá</label>
+          <div className="flex gap-2">
+            <Input placeholder="Nhập mã" value={discountCode} onChange={e => setDiscountCode(e.target.value)} />
+            <Button variant="outline" size="sm">Áp dụng</Button>
+          </div>
+        </div>
+
+        {/* Thông tin liên hệ */}
+        <div className="space-y-4">
+          <h4 className="font-semibold text-lg">Thông tin liên hệ</h4>
+          <Input placeholder="Họ và tên" value={name} onChange={e => setName(e.target.value)} disabled={!!customer} />
+          <Input type="tel" placeholder="Số điện thoại" value={phone} onChange={e => setPhone(e.target.value)} disabled={!!customer} />
+          <Input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={!!customer} />
+          {customer && <p className="text-sm text-muted-foreground">Đã đăng nhập với {customer.email}</p>}
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {!isStaff && (
-          <>
-            {/* Mã giảm giá */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Mã giảm giá</label>
-              <div className="flex gap-2">
-                <Input placeholder="Nhập mã" value={discountCode} onChange={e => setDiscountCode(e.target.value)} />
-                <Button variant="outline" size="sm">Áp dụng</Button>
-              </div>
-            </div>
-
-            {/* Thông tin liên hệ */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-lg">Thông tin liên hệ</h4>
-              <Input placeholder="Họ và tên" value={name} onChange={e => setName(e.target.value)} disabled={!!customer} />
-              <Input type="tel" placeholder="Số điện thoại" value={phone} onChange={e => setPhone(e.target.value)} disabled={!!customer} />
-              <Input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={!!customer} />
-              {customer && <p className="text-sm text-muted-foreground">Đã đăng nhập với {customer.email}</p>}
-            </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button onClick={handleProceed} className="w-full h-12 text-lg" disabled={selectedSeats.length === 0}>
-              Tiếp tục thanh toán
-            </Button>
-          </>
+          <Button onClick={handleProceed} className="w-full h-12 text-lg" disabled={selectedSeats.length === 0}>
+            Tiếp tục thanh toán
+          </Button>
         )}
 
         {/* Chỉ staff mới thấy thông báo này */}

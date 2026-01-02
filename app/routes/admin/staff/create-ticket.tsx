@@ -46,7 +46,11 @@ export default function CreateTicketAtCounter() {
     email: "",
     paymentMethod: "CASH",
   })
-
+  const [customerInfo, setCustomerInfo] = useState({
+    name: "",
+    phone: "",
+    email: "",
+  })
   // Fetch suất chiếu
   useEffect(() => {
     const fetchShowtimes = async () => {
@@ -74,14 +78,17 @@ export default function CreateTicketAtCounter() {
       toast.error("Vui lòng chọn ghế")
       return
     }
-
+    if (!customerInfo.name || !customerInfo.phone || !customerInfo.email) {
+      toast.error("Vui lòng nhập đầy đủ thông tin khách hàng")
+      return
+    }
     try {
       await apiClient.post(`/staff/ticket/create/${selectedShowtime.publicCode}`, {
         seatIds: selectedSeats.map(s => s.id),
-        customerName: formData.customerName.trim() || null,
-        phone: formData.phone.trim() || null,
-        email: formData.email.trim() || null,
-        paymentMethod: formData.paymentMethod,
+        customerName: customerInfo.name,
+        phone: customerInfo.phone,
+        email: customerInfo.email,
+        paymentMethod: "CASH",
       })
 
       toast.success("Tạo vé thành công!")
@@ -179,11 +186,12 @@ export default function CreateTicketAtCounter() {
           {selectedShowtime ? (
             <>
               <BookingSummary
-                code={selectedShowtime.publicCode}
+                code={selectedShowtime?.publicCode || ""}
                 showtime={selectedShowtime}
                 selectedSeats={selectedSeats}
                 heldBy={heldBy}
                 isStaff={true}
+                onCustomerInfoChange={setCustomerInfo} // ← TRUYỀN CALLBACK
               />
 
               <AlertDialog>

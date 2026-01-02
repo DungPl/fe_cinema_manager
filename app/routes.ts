@@ -97,7 +97,7 @@ export default [
     file: "routes/admin/staff/layout.tsx", // Layout riêng cho staff nếu cần
     children: [
       { path: "create-ticket", file: "routes/admin/staff/create-ticket.tsx" },
-      // { path: "check-in", file: "routes/admin/staff/check-in.tsx" },
+      { path: "check-in", file: "routes/admin/staff/checkin.tsx" },
     ],
   },
   // Manager

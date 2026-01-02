@@ -33,7 +33,7 @@ export default function PaymentPage() {
       return
     }
     setPaymentInfo(info)
-    setName(info.customer_name || "")
+    setName(info.name || "")
     setPhone(info.phone || "")
     setEmail(info.email || "")
   }, [code])
@@ -55,8 +55,8 @@ export default function PaymentPage() {
         seatIds,
         heldBy: paymentInfo.heldBy,
         customer_name: name,
-        phone,
-        email,
+        phone: phone,
+        email: email,
       })
 
       // Clear state sau thanh toán thành công

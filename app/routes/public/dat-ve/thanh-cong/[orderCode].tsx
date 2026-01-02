@@ -5,7 +5,7 @@ import { Button } from "~/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import { CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
-import {apiClient}from "~/lib/api/client"
+import { apiClient } from "~/lib/api/client"
 
 interface Ticket {
   ticketCode: string
@@ -16,9 +16,9 @@ interface OrderSuccessData {
   orderCode: string
   movieTitle: string
   showtime: string
-  seats: string[]
+  seats: string[] // hoặc string: "A1, A2, B3"
   totalAmount: number
-  tickets: Ticket[]
+  qrCode: string // ← 1 QR duy nhất cho cả đơn
 }
 
 interface ApiResponse<T> {
@@ -55,55 +55,54 @@ export default function PaymentSuccess() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-green-50 to-green-100 px-4">
-      <Card className="w-full max-w-2xl shadow-xl">
-        <CardHeader className="bg-green-50 text-center">
-          <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-4" />
-          <CardTitle className="text-3xl font-bold text-green-700">
+      <Card className="w-full max-w-2xl shadow-2xl">
+        <CardHeader className="bg-green-50 text-center pb-8">
+          <CheckCircle2 className="w-20 h-20 text-green-600 mx-auto mb-4" />
+          <CardTitle className="text-4xl font-bold text-green-700">
             Thanh toán thành công!
           </CardTitle>
+          <p className="text-lg text-green-600 mt-2">
+            Mã đơn hàng: <span className="font-bold text-xl">{order.orderCode}</span>
+          </p>
         </CardHeader>
 
-        <CardContent className="space-y-6 p-8">
-          <div className="text-center space-y-2">
-            <p className="text-lg">Cảm ơn bạn đã đặt vé tại CinemaHub</p>
-            <p className="text-xl font-semibold">
-              Mã đơn hàng: <span className="text-green-600">{order.orderCode}</span>
+        <CardContent className="space-y-8 p-8">
+          {/* Chi tiết đơn hàng */}
+          <div className="bg-gray-50 rounded-xl p-6 text-center space-y-4">
+            <h3 className="text-2xl font-semibold">{order.movieTitle}</h3>
+            <p className="text-lg text-gray-700">{order.showtime}</p>
+            <p className="text-lg">
+              <strong>Ghế:</strong> {order.seats.join(", ")}
+            </p>
+            <p className="text-2xl font-bold text-green-600">
+              {order.totalAmount.toLocaleString()} VNĐ
             </p>
           </div>
 
-          <div className="border rounded-lg p-6 bg-white">
-            <h3 className="text-xl font-semibold mb-4">Chi tiết vé</h3>
-            <div className="space-y-3">
-              <p><strong>Phim:</strong> {order.movieTitle}</p>
-              <p><strong>Suất chiếu:</strong> {order.showtime}</p>
-              <p><strong>Ghế:</strong> {order.seats.join(", ") || "Không có ghế"}</p>
-              <p><strong>Tổng tiền:</strong> {order.totalAmount.toLocaleString()} VNĐ</p>
+          {/* QR CODE DUY NHẤT CHO CẢ ĐOÀN */}
+          <div className="text-center">
+            <h3 className="text-2xl font-bold mb-6">Mã QR check-in vé</h3>
+            <div className="inline-block bg-white p-8 rounded-2xl shadow-lg border">
+              <img
+                src={order.qrCode}
+                alt="QR Code đơn hàng"
+                className="w-64 h-64 mx-auto"
+              />
             </div>
+            <p className="text-sm text-gray-600 mt-4">
+              Vui lòng xuất trình mã QR này tại quầy check-in khi vào rạp
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              (Áp dụng cho tất cả {order.seats.length} vé trong đơn)
+            </p>
           </div>
 
-          {order.tickets && order.tickets.length > 0 && (
-            <div className="text-center">
-              <h3 className="text-xl font-semibold mb-4">Mã QR vé của bạn</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {order.tickets.map(ticket => (
-                  <div key={ticket.ticketCode} className="border rounded-lg p-4 bg-white">
-                    <p className="font-medium mb-2">Vé: {ticket.ticketCode}</p>
-                    <img
-                      src={ticket.qrCode}
-                      alt={`QR Code vé ${ticket.ticketCode}`}
-                      className="mx-auto w-40 h-40"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
-            <Button onClick={() => navigate("/phim")} variant="outline" size="lg">
+          {/* Nút hành động */}
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-10">
+            <Button onClick={() => navigate("/")} variant="outline" size="lg" className="text-lg py-6">
               Quay lại trang chủ
             </Button>
-            <Button onClick={() => navigate(`/don-hang/${order.orderCode}`)} size="lg">
+            <Button onClick={() => navigate(`/don-hang/${order.orderCode}`)} size="lg" className="text-lg py-6">
               Xem chi tiết đơn hàng
             </Button>
           </div>
