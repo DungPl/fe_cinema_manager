@@ -40,11 +40,19 @@ export default function Navbar() {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
     }
   }
-
+  const handleMyTickets = () => {
+    if (!customer) {
+      // Chưa login → chuyển sang login + giữ redirect back
+      navigate("/login?redirect=/ve-cua-toi")
+    } else {
+      // Đã login → vào thẳng
+      navigate("/ve-cua-toi")
+    }
+  }
   // Xử lý logout
   const handleLogout = () => {
     logoutCustomer() // Gọi logout từ store (xóa token, set customer null)
-    navigate("/login")
+    navigate("/")
   }
 
   return (
@@ -126,19 +134,14 @@ export default function Navbar() {
 
             {/* Right actions */}
             <div className="flex items-center gap-2">
-              <NavLink to="/ve-cua-toi">
-                <Button variant="ghost" size="icon" className="relative">
-                  <Ticket className="w-5 h-5" />
-                  {/* {bookings.length > 0 && ( */}
-                  {/*   <Badge */}
-                  {/*     variant="destructive" */}
-                  {/*     className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs" */}
-                  {/*   > */}
-                  {/*     {bookings.length} */}
-                  {/*   </Badge> */}
-                  {/* )} */}
-                </Button>
-              </NavLink>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+                onClick={handleMyTickets} // ← thay NavLink bằng onClick
+              >
+                <Ticket className="w-5 h-5" />
+              </Button>
 
               <Button variant="ghost" size="icon">
                 <Bell className="w-5 h-5" />

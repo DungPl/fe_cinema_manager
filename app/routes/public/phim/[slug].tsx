@@ -7,7 +7,7 @@ import { Button } from "~/components/ui/button"
 import { Card } from "~/components/ui/card"
 import { Badge } from "~/components/ui/badge"
 import { ScrollArea } from "~/components/ui/scroll-area"
-import { MapPin, Info, User, Users } from "lucide-react"
+import { MapPin, Info, User, Users, Play } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import {
   getMovieDetail,
@@ -23,7 +23,59 @@ import { toast } from "sonner"
 dayjs.locale("vi")
 
 const FORMATS = ["2D", "3D", "IMAX", "4DX"]
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog"
+// Component TrailerDialog
+interface TrailerDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  trailerUrl?: string
+  genre?: string
+}
 
+function TrailerDialog({
+  open,
+  onOpenChange,
+  title,
+  trailerUrl,
+  genre,
+}: TrailerDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl p-0 overflow-hidden">
+        <DialogHeader className="p-4 border-b">
+          <DialogTitle className="text-xl">{title}</DialogTitle>
+        </DialogHeader>
+
+        <div className="aspect-video bg-black">
+          {trailerUrl ? (
+            <iframe
+              src={trailerUrl}
+              title="Trailer"
+              allowFullScreen
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full text-white text-lg">
+              Chưa có trailer chính thức
+            </div>
+          )}
+        </div>
+
+        {genre && (
+          <div className="p-4 flex flex-wrap gap-2">
+            {genre.split(",").map((g, idx) => (
+              <Badge key={idx} variant="secondary">
+                {g.trim()}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
 export default function MovieDetailPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -36,6 +88,7 @@ export default function MovieDetailPage() {
   const [showtimeData, setShowtimeData] = useState<MovieShowtimeResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [openCinemaId, setOpenCinemaId] = useState<number | null>(null)
+  const [trailerOpen, setTrailerOpen] = useState(false)
   /* ================= LOAD MOVIE ================= */
   useEffect(() => {
     if (!slug) return
@@ -70,7 +123,13 @@ export default function MovieDetailPage() {
 
   // Tạo mảng 7 ngày
   const dates = Array.from({ length: 7 }, (_, i) => dayjs().add(i, "day"))
-
+  const handleOpenTrailer = () => {
+    if (!movie?.trailers?.[0]?.url) {
+      toast.info("Phim này chưa có trailer")
+      return
+    }
+    setTrailerOpen(true)
+  }
   if (!movie) return null
   const isTodaySelected = selectedDate === dayjs().format("YYYY-MM-DD")
   const now = dayjs()
@@ -129,9 +188,15 @@ export default function MovieDetailPage() {
           )}
 
           {movie.trailers?.[0]?.url && (
-            <a href={movie.trailers[0].url} target="_blank" className="text-blue-600 underline">
-              ▶ Xem trailer
-            </a>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={handleOpenTrailer}
+            >
+              <Play className="w-4 h-4" />
+              Xem Trailer
+            </Button>
           )}
         </div>
       </div>
@@ -328,6 +393,13 @@ export default function MovieDetailPage() {
           )) || <p className="text-muted-foreground text-center">Không có hệ thống rạp nào</p>}
         </div>
       )}
+      <TrailerDialog
+        open={trailerOpen}
+        onOpenChange={setTrailerOpen}
+        title={movie?.title || ""}
+        trailerUrl={movie?.trailers?.[0]?.url}
+        genre={movie?.genre}
+      />
     </div>
   );
 }

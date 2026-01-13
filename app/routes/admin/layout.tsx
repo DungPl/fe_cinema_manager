@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, redirect, useLocation } from "react-router-dom";
 import { Sidebar } from "~/components/layouts/Sidebar";
 import { Navbar } from "~/components/layouts/Navbar";
 import { ROUTE_PERMISSIONS } from "~/lib/permission";
@@ -6,6 +6,33 @@ import { useAuthStore } from "~/stores/authAccountStore";
 import { useSidebarStore } from "~/stores/sidebarStore";
 import { toast } from "sonner";
 import type { UserRole } from "~/lib/api/types";
+export async function loader({ request }: { request: Request }) {
+  const cookieHeader = request.headers.get("cookie")
+
+  const res = await fetch("http://localhost:8002/api/v1/account/me", {
+    headers: { cookie: cookieHeader || "" },
+    credentials: "include",
+  })
+
+  if (!res.ok) {
+    return redirect("/admin/login")
+  }
+
+  const data = await res.json()
+  const user = data.user || data.data || data
+
+  if (!user?.role) {
+    return redirect("/forbidden")
+  }
+
+  const role = user.role.toLowerCase()
+  if (role !== "admin" && role !== "manager" && role !== "moderator") {
+    return redirect("/forbidden")
+  }
+
+  // ✅ CHỈ RETURN DATA
+  return { user }
+}
 
 export default function AdminLayout() {
   const { account, isLoading } = useAuthStore();
@@ -13,7 +40,7 @@ export default function AdminLayout() {
   const location = useLocation();
 
   const sidebarWidth = collapsed ? 80 : 256;
-  console.log("AdminLayout mount - isLoading:", isLoading, "account:", account);
+  //console.log("AdminLayout mount - isLoading:", isLoading, "account:", account);
   // 1. Đang load auth → hiển thị loading (tránh flash)
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Đang kiểm tra đăng nhập...</div>;

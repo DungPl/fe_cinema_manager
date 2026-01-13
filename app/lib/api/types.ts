@@ -489,6 +489,9 @@ export interface ShowtimeResponse {
   fill_rate: number        // tỉ lệ lấp phòng %
   booked_seats: number     // số ghế đã đặt
   total_seats: number      // tổng số ghế
+  actual_revenue:number
+  booked_revenue:number
+  refund_amount:number
 }
 export interface FilterShowtimeParams {
   showingStatus?: "UPCOMING" | "ONGOING" | "ENDED"
@@ -567,4 +570,25 @@ export interface MovieShowtimeResponse {
       showtimes: Showtime[]
     }[]
   }[]
+}
+
+
+export interface StaffWithAccount  {
+  id: number
+  firstname: string
+  lastname: string
+  phoneNumber: string
+  email?: string          // từ Account nếu có
+  identificationCard: string
+  role: string            // từ Staff (chức danh: Quản lý rạp, Nhân viên bán vé...)
+  note?: string
+  isActive: boolean
+  account?: {
+    id: number
+    username: string
+    role: string          // từ Account (ADMIN, MANAGER, MODERATOR, SELLER)
+    active: boolean
+    cinemaId?: number   // tên rạp nếu có CinemaId
+    cinema?:Cinema
+  }
 }

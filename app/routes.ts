@@ -47,6 +47,10 @@ export default [
         path: "ve-cua-toi",
         file: "routes/public/ve-cua-toi.tsx"
       },
+      {
+        path: "don-hang/:orderCode",
+        file: "routes/public/don-hang/[orderCode].tsx",
+      }
     ]
   },
 
@@ -75,6 +79,10 @@ export default [
         file: "routes/admin/cinemas/[cinemaId]/rooms.tsx"
       },
       {
+        path: "staff",
+        file: "routes/admin/staff/index.tsx"
+      },
+      {
         path: "movie",
         file: "routes/admin/movie/index.tsx"
       },
@@ -90,6 +98,18 @@ export default [
         path: "showtime",
         file: "routes/admin/showtime/index.tsx"
       },
+      { 
+        path: "reports/no-show", 
+        file: "routes/admin/reports/no-show.tsx" 
+      },
+      { 
+        path: "reports/staff-checkin", 
+        file: "routes/admin/reports/staff-checkin.tsx" 
+      },
+      {
+        path:"reports/no-show-tickets",
+        file:"routes/admin/reports/no-show-tickets.tsx"
+      }
     ],
   },
   {

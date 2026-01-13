@@ -5,7 +5,8 @@ import {
   Home, Building2, Film, Calendar,
   Users, DollarSign, Settings,
   ChevronDown, ChevronRight,
-  Ticket, Scan
+  Ticket, Scan,
+  BarChart3
 } from "lucide-react"
 import { Sun, Moon } from "lucide-react"
 import { useThemeStore } from "~/stores/themeStore"
@@ -67,7 +68,7 @@ export function Sidebar({ className }: SidebarProps) {
       label: "Tổng quan",
       to: "/admin",
       exact: true,
-      roles: ["ADMIN", "MANAGER", "STAFF"],
+      roles: ["ADMIN", "MANAGER", "STAFF", "MODERATOR"],
     },
 
     // Chỉ STAFF: Tạo vé & Check-in
@@ -137,10 +138,18 @@ export function Sidebar({ className }: SidebarProps) {
     {
       icon: Users,
       label: "Người dùng",
-      to: "/admin/users",
+      to: "/admin/staff",
       roles: ["ADMIN"],
     },
-
+    {
+      label: "Báo cáo",
+      icon: BarChart3,
+      children: [
+        { label: "No-Show", to: "/admin/reports/no-show" },
+        { label: "Check-in Nhân viên", to: "/admin/reports/staff-checkin" },
+        {label:"Khách hàng không check in ", to:"/admin/reports/no-show-tickets"},
+      ],
+    },
     // Cài đặt (ADMIN)
     {
       icon: Settings,
@@ -153,9 +162,8 @@ export function Sidebar({ className }: SidebarProps) {
   /** ================= RENDER ================= */
   return (
     <aside
-      className={`flex flex-col h-screen ${collapsed ? "w-20" : "w-64"} border-r transition-all duration-300 ${
-        isDark ? "bg-gray-900 text-gray-100 border-gray-800" : "bg-white text-gray-800 border-gray-200"
-      } ${className}`}
+      className={`flex flex-col h-screen ${collapsed ? "w-20" : "w-64"} border-r transition-all duration-300 ${isDark ? "bg-gray-900 text-gray-100 border-gray-800" : "bg-white text-gray-800 border-gray-200"
+        } ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b">

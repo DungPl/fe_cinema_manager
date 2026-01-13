@@ -23,7 +23,7 @@ export default function CinemaDetailPage() {
   const { slug } = useParams()
   const navigate = useNavigate()
 
-  const [cinema, setCinema] = useState<any>(null)
+  const [cinema, setCinema] = useState<any>()
   const [showtimes, setShowtimes] = useState<MovieWithShowtimes[]>([])
   const [selectedDate, setSelectedDate] = useState(dayjs().format("YYYY-MM-DD"))
   const [loading, setLoading] = useState(true)
@@ -49,6 +49,7 @@ export default function CinemaDetailPage() {
       getShowtimeByCinema(slug, selectedDate),
     ])
       .then(([cinemaRes, showtimeRes]) => {
+        //console.log("Cinema detail:", cinemaRes.data)
         setCinema(cinemaRes.data)
         setShowtimes(showtimeRes || [])
       })
@@ -72,7 +73,9 @@ export default function CinemaDetailPage() {
           <h1 className="text-2xl font-bold">{cinema?.name}</h1>
           <p className="flex items-center gap-2 text-muted-foreground mt-1">
             <MapPin className="w-4 h-4" />
-            {cinema?.addresses?.[0]?.fullAddress}
+            {cinema.address && cinema.address.length > 0
+              ? cinema.address[0].fullAddress
+              : "Chưa có thông tin địa chỉ"}
           </p>
           <p className="mt-3 text-sm">{cinema?.description}</p>
         </div>
@@ -117,16 +120,16 @@ export default function CinemaDetailPage() {
 
 
       {/* ===== SHOWTIMES ===== */}
-      <div className="space-y-8">
+      <div className="space-y-6">
         {showtimes.length === 0 ? (
-          <p className="text-center text-muted-foreground py-12 text-lg">
+          <p className="text-center text-muted-foreground py-16 text-lg">
             Chưa có lịch chiếu cho ngày này
           </p>
         ) : (
           showtimes.map((movieItem, movieIdx) => {
             const movie = movieItem.movie
 
-            // Nhóm các suất theo combo "format + languageType"
+            // Nhóm theo format + ngôn ngữ
             const groupedByFormatLang = movieItem.showtimes.reduce((acc, st) => {
               const key = `${st.format || "2D"}-${st.languageType || "VI_SUB"}`
               if (!acc[key]) {
@@ -142,79 +145,75 @@ export default function CinemaDetailPage() {
 
             const groups = Object.values(groupedByFormatLang)
 
-            // === SẮP XẾP ƯU TIÊN: 3D/IMAX/4DX lên trên, 2D xuống dưới ===
+            // Sắp xếp ưu tiên: IMAX > 4DX > 3D > 2D
             groups.sort((a, b) => {
-              const formatOrder: { [key: string]: number } = {
-                IMAX: 1,
-                "4DX": 2,
-                "3D": 3,
-                "2D": 4,
-              }
-
-              const aPriority = formatOrder[a.format] || 999 // 2D hoặc khác → xuống cuối
-              const bPriority = formatOrder[b.format] || 999
-
-              return aPriority - bPriority // nhỏ hơn → lên trên
+              const order: Record<string, number> = { IMAX: 1, "4DX": 2, "3D": 3, "2D": 4 }
+              return (order[a.format] || 999) - (order[b.format] || 999)
             })
 
             return (
-              <div key={movieIdx} className="border rounded-xl overflow-hidden shadow-md bg-white">
-                <div className="flex gap-5 p-5">
-                  {/* Poster */}
+              <div
+                key={movieIdx}
+                className="border rounded-xl overflow-hidden bg-card hover:shadow-lg transition-shadow duration-200"
+              >
+                <div className="flex gap-4 p-4">
+                  {/* Poster nhỏ gọn */}
                   <div className="shrink-0">
                     {movie.posters?.[0]?.url ? (
                       <img
                         src={movie.posters[0].url}
                         alt={movie.title}
-                        className="w-32 h-48 object-cover rounded-lg shadow"
+                        className="w-20 h-28 object-cover rounded-md shadow-sm"
                       />
                     ) : (
-                      <div className="w-32 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <span className="text-gray-400">No poster</span>
+                      <div className="w-20 h-28 bg-muted rounded-md flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">No poster</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Thông tin phim */}
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-bold mb-2">{movie.title}</h3>
+                  {/* Nội dung chính */}
+                  <div className="flex-1 min-w-0">
+                    {/* Tên phim + thông tin cơ bản */}
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <h3 className="font-bold text-lg line-clamp-2 pr-2">{movie.title}</h3>
 
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                      <span>{movie.ageRestriction}</span>
-                      <span>·</span>
-                      <span>
-                        {Math.floor(movie.duration / 60)}h {movie.duration % 60}p
-                      </span>
-
-                      {/* Trailer */}
+                      {/* Nút Trailer nhỏ */}
                       {movie.trailers?.[0]?.url && (
-                        <>
-                          <span>·</span>
-                          <button
-                            onClick={() => {
-                              setSelectedMovie(movie)
-                              setOpenTrailer(true)
-                            }}
-                            className="flex items-center gap-1 text-blue-600 hover:underline font-medium"
-                          >
-                            <PlayCircle className="w-5 h-5" />
-                            Trailer
-                          </button>
-                        </>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedMovie(movie)
+                            setOpenTrailer(true)
+                          }}
+                          className="shrink-0 text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm font-medium"
+                        >
+                          <PlayCircle className="w-4 h-4" />
+                          Trailer
+                        </button>
                       )}
                     </div>
 
-                    {/* Các định dạng chiếu – 3D/IMAX lên trên */}
-                    <div className="space-y-6">
+                    {/* Thông tin phụ */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-4">
+                      <span className="px-2 py-1 bg-muted rounded">{movie.ageRestriction}</span>
+                      <span>•</span>
+                      <span>{Math.floor(movie.duration / 60)}h {movie.duration % 60}p</span>
+                    </div>
+
+                    {/* Các suất chiếu – gọn nhất có thể */}
+                    <div className="space-y-4">
                       {groups.map((group, groupIdx) => (
                         <div key={groupIdx}>
-                          <p className="font-semibold text-xl mb-3">
-                            {group.format} {group.languageLabel}
+                          {/* Tiêu đề định dạng */}
+                          <p className="font-medium text-sm text-primary mb-2">
+                            {group.format} • {group.languageLabel}
                           </p>
 
-                          <div className="flex flex-wrap gap-3">
+                          {/* Danh sách suất */}
+                          <div className="flex flex-wrap gap-2">
                             {group.showtimes
-                              .sort((a, b) => dayjs(a.start).unix() - dayjs(b.start).unix()) // Sắp xếp giờ tăng dần
+                              .sort((a, b) => dayjs(a.start).unix() - dayjs(b.start).unix())
                               .map((st) => {
                                 const time = dayjs(st.start).format("HH:mm")
                                 const isPast = dayjs(st.start).isBefore(dayjs())
@@ -223,15 +222,23 @@ export default function CinemaDetailPage() {
                                   <Button
                                     key={st.id}
                                     variant={isPast ? "secondary" : "outline"}
-                                    size="lg"
+                                    size="sm"
                                     disabled={isPast}
-                                    className="min-w-24 flex flex-col h-16 px-4 py-2"
+                                    className={`
+                                min-w-20 h-11 text-sm font-medium
+                                ${isPast
+                                        ? "opacity-60 cursor-not-allowed"
+                                        : "hover:bg-primary hover:text-primary-foreground"
+                                      }
+                              `}
                                     onClick={() => !isPast && navigate(`/dat-ve/${st.publicCode}`)}
                                   >
-                                    <span className="text-base font-semibold">{time}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {(st.price / 1000).toLocaleString()}k
-                                    </span>
+                                    <div className="flex flex-col items-center leading-tight">
+                                      <span className="font-semibold">{time}</span>
+                                      <span className="text-xs opacity-80">
+                                        {(st.price / 1000).toLocaleString()}k
+                                      </span>
+                                    </div>
                                   </Button>
                                 )
                               })}

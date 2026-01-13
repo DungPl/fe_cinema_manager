@@ -143,8 +143,10 @@ export default function ScheduleManagement() {
         setFilteredShowtimes(filtered)
 
         setTotalShowtimes(filtered.length)
-        const revenue = filtered.reduce((sum, s) => sum + s.booked_seats * (s.price || 0), 0)
-        setTotalRevenue(revenue)
+        const actualRevenue = filtered.reduce((sum, s) => sum + (s.actual_revenue || 0), 0)
+        const bookedRevenue = filtered.reduce((sum, s) => sum + (s.booked_revenue || 0), 0)
+        const refundedAmount = bookedRevenue - actualRevenue
+        setTotalRevenue(actualRevenue)
         const fillRates = filtered.map(s => s.fill_rate)
         const avgFill = fillRates.length > 0 ? fillRates.reduce((sum, rate) => sum + rate, 0) / fillRates.length : 0
         setAverageFillRate(Math.round(avgFill))
@@ -223,13 +225,41 @@ export default function ScheduleManagement() {
                         <p className="text-xl font-bold">{totalShowtimes}</p>
                     </div>
                 </div>
-                <div className="flex items-center p-4 bg-green-50 rounded-lg">
-                    <div className="p-2 bg-green-100 rounded-full mr-3">
-                        <span className="text-green-600">$</span>
+                <div className="flex items-center p-4 bg-blue-50 rounded-lg">
+                    <div className="p-2 bg-blue-100 rounded-full mr-3">
+                        <span className="text-blue-600 text-xl">$</span>
                     </div>
                     <div>
-                        <p className="text-sm text-gray-600">Doanh thu đã đạt</p>
-                        <p className="text-xl font-bold">{totalRevenue.toLocaleString("vi-VN")} đ</p>
+                        <p className="text-sm text-gray-600">Doanh thu đã bán</p>
+                        <p className="text-xl font-bold">
+                            {filteredShowtimes.reduce((sum, s) => sum + (s.booked_revenue || 0), 0).toLocaleString("vi-VN")} đ
+                        </p>
+                    </div>
+                </div>
+
+                {/* Đã hoàn tiền */}
+                <div className="flex items-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="p-2 bg-orange-100 rounded-full mr-3">
+                        <span className="text-orange-600 text-xl">↩</span>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Đã hoàn tiền</p>
+                        <p className="text-xl font-bold text-orange-600">
+                            -{filteredShowtimes.reduce((sum, s) => sum + (s.refund_amount || 0), 0).toLocaleString("vi-VN")} đ
+                        </p>
+                    </div>
+                </div>
+
+                {/* Doanh thu thực nhận – quan trọng nhất */}
+                <div className="flex items-center p-4 bg-green-50 rounded-lg border-2 border-green-500">
+                    <div className="p-2 bg-green-100 rounded-full mr-3">
+                        <span className="text-green-600 text-xl">✓</span>
+                    </div>
+                    <div>   
+                        <p className="text-sm text-gray-600">Doanh thu thực nhận</p>
+                        <p className="text-2xl font-bold text-green-600">
+                            {filteredShowtimes.reduce((sum, s) => sum + (s.actual_revenue || 0), 0).toLocaleString("vi-VN")} đ
+                        </p>
                     </div>
                 </div>
                 <div className="flex items-center p-4 bg-purple-50 rounded-lg">
@@ -329,7 +359,7 @@ export default function ScheduleManagement() {
                                     const progressColor = fillRate < 50 ? "bg-green-500" : fillRate < 80 ? "bg-blue-500" : fillRate < 100 ? "bg-yellow-500" : "bg-red-500"
                                     const status = getStatus(s)
                                     return (
-                                        <TableRow key={s.start_time}>
+                                        <TableRow key={s.id}>
                                             <TableCell>{s.movie.title}</TableCell>
                                             <TableCell>
                                                 {s.room?.cinema?.name || "—"} - {s.room.name}

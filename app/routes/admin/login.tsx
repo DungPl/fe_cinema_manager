@@ -35,63 +35,67 @@ export default function Login() {
   })
 
   const onSubmit = async (data: LoginForm) => {
-  setError("")
-  setIsLoading(true)
+    setError("")
+    setIsLoading(true)
 
-  try {
-    const res = await fetch("http://localhost:8002/api/v1/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-      credentials: "include",
-    })
+    try {
+      const res = await fetch("http://localhost:8002/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      })
 
-    if (!res.ok) {
+      if (!res.ok) {
+        const json = await res.json()
+        setError(json.message || "Tên đăng nhập hoặc mật khẩu sai")
+        return
+      }
+
       const json = await res.json()
-      setError(json.message || "Tên đăng nhập hoặc mật khẩu sai")
-      return
-    }
+      console.log("LOGIN RESPONSE:", json)
 
-    const json = await res.json()
-    console.log("LOGIN RESPONSE:", json)
+      const account = json.account
 
-    const account = json.account
+      // === QUAN TRỌNG: Đợi login hoàn tất ===
+      await login(account) // ← thêm await nếu login là async
 
-    login(account) // Lưu vào store → set loading = false
+      toast.success("Đăng nhập thành công!")
 
-    const role = account.role
+      const role = account.role
 
-    // Redirect theo role
-    switch (role) {
-      case "ADMIN":
-        navigate("/admin")
-        break
-      case "MANAGER":
-        if (account.cinemaId) {
-          navigate(`/admin/cinemas/${account.cinemaId}/rooms`)
-        } else {
-          toast.error("Quản lý chưa được gán rạp")
-          navigate("/forbidden")
+      // Redirect theo role – dùng setTimeout nhỏ để đảm bảo state đã cập nhật
+      setTimeout(() => {
+        switch (role) {
+          case "ADMIN":
+            navigate("/admin")
+            break
+          case "MANAGER":
+            if (account.cinemaId) {
+              navigate(`/admin/cinemas/${account.cinemaId}/rooms`)
+            } else {
+              toast.error("Quản lý chưa được gán rạp")
+              navigate("/forbidden")
+            }
+            break
+          case "MODERATOR":
+            navigate("/admin/movie")
+            break
+          case "STAFF":
+            navigate("/staff/create-ticket")
+            break
+          default:
+            navigate("/forbidden")
         }
-        break
-      case "MODERATOR":
-        navigate("/admin/movie")
-        break
-      case "STAFF":
-        navigate("/staff/create-ticket")
-        break
-      default:
-        navigate("/forbidden")
-    }
+      }, 100) // 100ms đủ để state cập nhật
 
-    toast.success("Đăng nhập thành công")
-  } catch (err) {
-    console.error(err)
-    setError("Không thể kết nối đến server. Vui lòng thử lại.")
-  } finally {
-    setIsLoading(false)
+    } catch (err) {
+      console.error(err)
+      setError("Không thể kết nối đến server. Vui lòng thử lại.")
+    } finally {
+      setIsLoading(false)
+    }
   }
-}
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-blue-50 via-white to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">

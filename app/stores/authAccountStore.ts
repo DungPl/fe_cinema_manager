@@ -18,52 +18,80 @@ interface AuthState {
   isManager: boolean
   isModerator: boolean
   isTicketSeller: boolean
-  isLoading: boolean  // Thêm
+  isLoading: boolean
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      account: null,
-      isAdmin: false,
-      isManager: false,
-      isModerator: false,
-      isTicketSeller: false,
-      isLoading: true,  // Bắt đầu loading
-
-      login: (account) => {
-        set({
-          account,
-          isAdmin: account.role === "ADMIN",
-          isManager: account.role === "MANAGER",
-          isModerator: account.role === "MODERATOR",
-          isTicketSeller: account.role === "STAFF",
-          isLoading: false,
-        })
-      },
-
-      logout: () => {
-        set({
+// ✅ CHỈ DÙNG PERSIST KHI Ở CLIENT (window tồn tại)
+const useAuthStore = create<AuthState>()(
+  typeof window !== "undefined"
+    ? persist(
+        (set) => ({
           account: null,
           isAdmin: false,
           isManager: false,
           isModerator: false,
           isTicketSeller: false,
-          isLoading: false,
-        })
-      },
-    }),
-    {
-      name: "auth-account",
-      partialize: (state) => ({ account: state.account }),
-      onRehydrateStorage: () => {
-        // Khi load xong từ storage
-        return (state) => {
-          if (state) {
-            state.isLoading = false
-          }
+          isLoading: true,
+
+          login: (account) => {
+            set({
+              account,
+              isAdmin: account.role === "ADMIN",
+              isManager: account.role === "MANAGER",
+              isModerator: account.role === "MODERATOR",
+              isTicketSeller: account.role === "STAFF",
+              isLoading: false,
+            })
+          },
+
+          logout: () => {
+            set({
+              account: null,
+              isAdmin: false,
+              isManager: false,
+              isModerator: false,
+              isTicketSeller: false,
+              isLoading: false,
+            })
+          },
+        }),
+        {
+          name: "auth-account",
+          partialize: (state) => ({ account: state.account }),
+          onRehydrateStorage: () => (state) => {
+            if (state) state.isLoading = false
+          },
         }
-      },
-    }
-  )
+      )
+    : (set) => ({
+        // Fallback khi SSR – không persist
+        account: null,
+        isAdmin: false,
+        isManager: false,
+        isModerator: false,
+        isTicketSeller: false,
+        isLoading: false,
+
+        login: (account) =>
+          set({
+            account,
+            isAdmin: account.role === "ADMIN",
+            isManager: account.role === "MANAGER",
+            isModerator: account.role === "MODERATOR",
+            isTicketSeller: account.role === "STAFF",
+            isLoading: false,
+          }),
+
+        logout: () =>
+          set({
+            account: null,
+            isAdmin: false,
+            isManager: false,
+            isModerator: false,
+            isTicketSeller: false,
+            isLoading: false,
+          }),
+      })
 )
+
+export { useAuthStore }
