@@ -53,7 +53,7 @@ export default function Login() {
       }
 
       const json = await res.json()
-      console.log("LOGIN RESPONSE:", json)
+      //console.log("LOGIN RESPONSE:", json)
 
       const account = json.account
 

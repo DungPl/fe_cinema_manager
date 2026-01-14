@@ -1,4 +1,4 @@
-import { Navigate, Outlet, redirect, useLocation } from "react-router-dom";
+import { Navigate, Outlet, redirect, useLocation } from "react-router";
 import { Sidebar } from "~/components/layouts/Sidebar";
 import { Navbar } from "~/components/layouts/Navbar";
 import { ROUTE_PERMISSIONS } from "~/lib/permission";

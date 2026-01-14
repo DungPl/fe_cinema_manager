@@ -375,7 +375,7 @@ export default function OrderDetailPage() {
             </div>
           ) : (
             <div className="flex items-center gap-4 text-red-600 bg-red-50 px-8 py-5 rounded-xl border border-red-200">
-              <Ban className="w-10 h-10 flex-shrink-0" />
+              <Ban className="w-10 h-10 shrink-0" />
               <div className="text-left">
                 <p className="font-bold text-lg">Không thể hủy vé</p>
                 <p className="text-sm mt-1">

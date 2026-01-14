@@ -8,7 +8,7 @@ import { getShowtimeByPublicCode } from "~/lib/api/showtimeApi";
 import type { Showtime, Seat, BookingSeat } from "~/lib/api/types";
 export function useHoldCountdown(expiredAt?: string) {
   const [seconds, setSeconds] = useState<number | null>(null)
-
+  
   useEffect(() => {
     if (!expiredAt) return
 
@@ -31,7 +31,7 @@ export default function BookingPage() {
   const [selectedSeats, setSelectedSeats] = useState<BookingSeat[]>([]);
   const [heldBy, setHeldBy] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  
+ const [paymentMethod, setPaymentMethod] = useState("CASH")
   useEffect(() => {
     const fetchShowtime = async () => {
       try {
@@ -48,7 +48,7 @@ export default function BookingPage() {
 
   if (error) return <div>{error}</div>;
   if (!showtime) return <div>Đang tải...</div>;
-  
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <MovieInfo showtime={showtime} />
@@ -68,6 +68,8 @@ export default function BookingPage() {
           showtime={showtime}
           selectedSeats={selectedSeats}
           heldBy={heldBy}
+          paymentMethod={paymentMethod}          // ← Truyền xuống
+          onPaymentMethodChange={setPaymentMethod} // ← Callback để BookingSummary cập nhật lên cha
         />
       </div>
     </div>

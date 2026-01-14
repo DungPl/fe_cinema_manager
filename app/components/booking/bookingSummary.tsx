@@ -1,5 +1,5 @@
 // components/booking/bookingSummary.tsx
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import type { Showtime, BookingSeat } from "~/lib/api/types"
 import { Button } from "~/components/ui/button"
@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~
 import { useAuthStore } from "~/stores/authCustomerStore"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 
 // Interface cho staff
 interface StaffShowtime {
@@ -36,6 +37,8 @@ interface BookingSummaryProps {
     phone: string
     email: string
   }
+  paymentMethod: string
+  onPaymentMethodChange?: (method: string) => void  // ← Callback mới
   onCustomerInfoChange?: (info: { name: string; phone: string; email: string }) => void
   onProceedToPayment?: () => void  // Callback cho khách online
 }
@@ -52,7 +55,9 @@ export default function BookingSummary({
   heldBy,
   isStaff = false,
   onProceedToPayment,
-  onCustomerInfoChange
+  onCustomerInfoChange,
+  paymentMethod,
+  onPaymentMethodChange
 }: BookingSummaryProps) {
   const navigate = useNavigate()
   const [discountCode, setDiscountCode] = useState("")
@@ -60,13 +65,21 @@ export default function BookingSummary({
   const [name, setName] = useState(customer?.username || customer?.email.split("@")[0] || "")
   const [phone, setPhone] = useState(customer?.phone || "")
   const [email, setEmail] = useState(customer?.email || "")
+
+  // Mặc định MOMO cho khách online, CASH cho staff
+  //const [paymentMethod, setPaymentMethod] = useState<string>(isStaff ? "CASH" : "MOMO")
+
+
+  // Đồng bộ ref mỗi khi state thay đổi
+
   useEffect(() => {
-  onCustomerInfoChange?.({
-    name,
-    phone,
-    email,
-  })
-}, [name, phone, email, onCustomerInfoChange])
+    onCustomerInfoChange?.({
+      name,
+      phone,
+      email,
+    })
+  }, [name, phone, email, onCustomerInfoChange])
+
   const [error, setError] = useState<string | null>(null)
 
   // Tính giá an toàn
@@ -108,7 +121,7 @@ export default function BookingSummary({
       ? showtime.start
       : (showtime as StaffShowtime).startTime
     : ""
-  const validateCustomerInfo = () => {
+  const validateCustomerInfo = useCallback(() => {
     if (selectedSeats.length === 0) {
       setError("Vui lòng chọn ít nhất một ghế")
       return false
@@ -121,8 +134,12 @@ export default function BookingSummary({
       setError("Vui lòng chọn suất chiếu")
       return false
     }
+    if (!paymentMethod) {
+      setError("Vui lòng chọn phương thức thanh toán")
+      return false
+    }
     return true
-  }
+  }, [selectedSeats, name, phone, email, showtime, paymentMethod])
   // Nhóm ghế
   const groupedSeats = () => {
     if (selectedSeats.length === 0) return []
@@ -159,8 +176,10 @@ export default function BookingSummary({
 
   const grouped = groupedSeats()
 
-  const handleProceed = () => {
+  const handleProceed = useCallback(() => {
     if (!validateCustomerInfo()) return
+
+
 
     const paymentInfo = {
       code,
@@ -173,9 +192,12 @@ export default function BookingSummary({
       phone: phone.trim(),
       email: email.trim(),
       discountCode,
+      paymentMethod, // ← Dùng ref ở đây
       totalAmount: total,
       basePrice: isFullShowtime(showtime!) ? showtime!.price || 50000 : (showtime as StaffShowtime).price || 50000,
     }
+
+    console.log("Payload gửi đi (useCallback + ref):", paymentInfo)
 
     localStorage.setItem("paymentInfo", JSON.stringify(paymentInfo))
 
@@ -184,8 +206,22 @@ export default function BookingSummary({
     } else {
       navigate(`/payment/${code}`)
     }
-  }
-  
+  }, [
+    code,
+    showtime,
+    selectedSeats,
+    heldBy,
+    name,
+    phone,
+    email,
+    discountCode,
+    total,
+    onProceedToPayment,
+    navigate,
+    validateCustomerInfo,
+    paymentMethod // ← ref không gây re-render
+  ])
+
   if (!showtime) {
     return (
       <Card className="border-2 border-primary/20 shadow-lg">
@@ -267,6 +303,31 @@ export default function BookingSummary({
           </div>
         </div>
 
+        {/* Phương thức thanh toán */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Phương thức thanh toán</label>
+          <Select
+            value={paymentMethod}
+            onValueChange={(value) => {
+              onPaymentMethodChange?.(value) // ← Gửi lên cha
+              console.log("Dropdown chọn:", value)
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Chọn phương thức" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="MOMO">MOMO</SelectItem>
+              <SelectItem value="VNPAY">VNPAY</SelectItem>
+              <SelectItem value="CARD">Thẻ tín dụng/Ghi nợ</SelectItem>
+              {isStaff && (
+                <SelectItem value="CASH">Tiền mặt (tại quầy)</SelectItem>
+              )}
+              <SelectItem value="ZALOPAY">ZaloPay</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Thông tin liên hệ */}
         <div className="space-y-4">
           <h4 className="font-semibold text-lg">Thông tin liên hệ</h4>
@@ -282,13 +343,17 @@ export default function BookingSummary({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
         {!isStaff && (
-          <Button onClick={handleProceed} className="w-full h-12 text-lg" disabled={selectedSeats.length === 0}>
+          <Button
+            onClick={handleProceed}
+            className="w-full h-12 text-lg"
+            disabled={selectedSeats.length === 0}
+          >
             Tiếp tục thanh toán
           </Button>
         )}
 
-        {/* Chỉ staff mới thấy thông báo này */}
         {isStaff && (
           <div className="text-center text-sm text-gray-600 mt-6 p-4 bg-blue-50 rounded-lg">
             Nhân viên quầy vé: Vé sẽ được tạo ngay lập tức sau khi xác nhận ở bước tiếp theo

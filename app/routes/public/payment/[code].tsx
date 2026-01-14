@@ -57,6 +57,7 @@ export default function PaymentPage() {
         customer_name: name,
         phone: phone,
         email: email,
+        paymentMethod: paymentInfo.paymentMethod || "MOMO",
       })
 
       // Clear state sau thanh toán thành công

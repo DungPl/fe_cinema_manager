@@ -125,15 +125,6 @@ export function Sidebar({ className }: SidebarProps) {
         { label: "Đạo diễn", to: "/admin/movie/directors", roles: ["ADMIN", "MODERATOR"] },
       ],
     },
-
-    // Doanh thu (ADMIN + MANAGER)
-    {
-      icon: DollarSign,
-      label: "Doanh thu",
-      to: "/admin/revenue",
-      roles: ["ADMIN", "MANAGER"],
-    },
-
     // Người dùng (ADMIN)
     {
       icon: Users,
@@ -145,9 +136,10 @@ export function Sidebar({ className }: SidebarProps) {
       label: "Báo cáo",
       icon: BarChart3,
       children: [
+        { label: "Tổng hợp", to: "/admin/reports/dashboard" },
         { label: "No-Show", to: "/admin/reports/no-show" },
         { label: "Check-in Nhân viên", to: "/admin/reports/staff-checkin" },
-        {label:"Khách hàng không check in ", to:"/admin/reports/no-show-tickets"},
+        { label: "Khách hàng không check in ", to: "/admin/reports/no-show-tickets" },
       ],
     },
     // Cài đặt (ADMIN)

@@ -9,6 +9,7 @@ export const ROUTE_PERMISSIONS: Record<string, UserRole[]> = {
   "/admin/cinemas/:cinemaId/rooms": ["ADMIN", "MANAGER"],
   "/admin/showtime": ["ADMIN", "MANAGER"],
   "/admin/reports": ["ADMIN", "MANAGER"],
+  "/admin/reports/dashboard":["ADMIN", "MANAGER"],
   "/admin/reports/no-show": ["ADMIN", "MANAGER"],
   "/admin/reports/staff-checkin": ["ADMIN", "MANAGER"],
   "/admin/reports/no-show-tickets":["ADMIN", "MANAGER"],

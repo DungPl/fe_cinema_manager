@@ -39,7 +39,7 @@ export default function CreateTicketAtCounter() {
   const [selectedSeats, setSelectedSeats] = useState<BookingSeat[]>([])
   const [heldBy, setHeldBy] = useState<string>("STAFF")
   const [loading, setLoading] = useState(true)
-
+  const [paymentMethod, setPaymentMethod] = useState("CASH")
   const [formData, setFormData] = useState({
     customerName: "",
     phone: "",
@@ -88,7 +88,7 @@ export default function CreateTicketAtCounter() {
         customerName: customerInfo.name,
         phone: customerInfo.phone,
         email: customerInfo.email,
-        paymentMethod: "CASH",
+        paymentMethod: paymentMethod,
       })
 
       toast.success("Tạo vé thành công!")
@@ -191,7 +191,9 @@ export default function CreateTicketAtCounter() {
                 selectedSeats={selectedSeats}
                 heldBy={heldBy}
                 isStaff={true}
-                onCustomerInfoChange={setCustomerInfo} // ← TRUYỀN CALLBACK
+                onCustomerInfoChange={setCustomerInfo}
+                paymentMethod={paymentMethod}          // ← Truyền xuống
+                onPaymentMethodChange={setPaymentMethod} // ← Callback để BookingSummary cập nhật lên cha
               />
 
               <AlertDialog>

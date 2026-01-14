@@ -107,6 +107,10 @@ export default [
         file: "routes/admin/reports/staff-checkin.tsx" 
       },
       {
+        path:"reports/dashboard",
+        file:"routes/admin/reports/dashboard.tsx"
+      },
+      {
         path:"reports/no-show-tickets",
         file:"routes/admin/reports/no-show-tickets.tsx"
       }

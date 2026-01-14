@@ -251,6 +251,7 @@ export interface PurchaseSeatsRequest {
   phone: string;
   email: string;
   discountCode?: string;
+  paymentMethod:string
 }
 
 export interface PurchaseSeatsResponse {
