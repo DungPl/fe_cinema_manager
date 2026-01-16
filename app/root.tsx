@@ -8,7 +8,7 @@ import {
   useRouteError,
   isRouteErrorResponse,
 } from "react-router";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Toaster } from "~/components/ui/sonner"
 import "./app.css"; // giữ css của bạn
 
