@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate } from "react-router"
 import { useEffect, useState } from "react"
 import { getCinemaDetail, getShowtimeByCinema } from "~/lib/api/cinemaApi"
 import { Badge } from "~/components/ui/badge"

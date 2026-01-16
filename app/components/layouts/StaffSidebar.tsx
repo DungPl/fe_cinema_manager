@@ -1,5 +1,5 @@
 // ~/components/layouts/StaffSidebar.tsx
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation } from "react-router"
 import { useAuthStore } from "~/stores/authAccountStore"
 import { Ticket, Scan, LogOut } from "lucide-react"
 import { useSidebarStore } from "~/stores/sidebarStore"

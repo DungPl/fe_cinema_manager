@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useParams } from "react-router";
 import { toast } from "sonner";
 import { useAuthStore } from "~/stores/authAccountStore";
 

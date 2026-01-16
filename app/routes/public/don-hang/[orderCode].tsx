@@ -1,6 +1,6 @@
 // routes/public/don-hang/[orderCode].tsx
 import { useEffect, useState } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate } from "react-router"
 import { Button } from "~/components/ui/button"
 import { Badge } from "~/components/ui/badge"
 import { Separator } from "~/components/ui/separator"

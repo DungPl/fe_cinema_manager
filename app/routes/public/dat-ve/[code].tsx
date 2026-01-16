@@ -1,5 +1,5 @@
 // routes/booking/[code].tsx
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { useEffect, useState } from "react";
 import MovieInfo from "~/components/booking/movieInfo";
 import SeatMap from "~/components/booking/seatmap";

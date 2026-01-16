@@ -1,5 +1,5 @@
 // src/app/routes/(protected)/profile.route.tsx
-import { useLoaderData } from "react-router-dom"
+import { useLoaderData } from "react-router"
 
 export default function Profile() {
   const { user } = useLoaderData() as { user: any }

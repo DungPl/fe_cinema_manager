@@ -75,16 +75,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     }
     return null
 }
-const COLORS = [
-    '#6366f1', // indigo
-    '#8b5cf6', // violet
-    '#d946ef', // fuchsia
-    '#ec4899', // pink
-    '#f43f5e', // rose
-    '#3b82f6', // blue
-    '#06b6d4', // cyan
-    '#10b981'  // emerald
-]
+
 export default function DashboardReportPage() {
     const [cinemasList, setCinemasList] = useState<Cinema[]>([])  // Danh sách rạp đầy đủ
     const [timeRange, setTimeRange] = useState("7days")           // 7days, 30days, custom
@@ -103,6 +94,7 @@ export default function DashboardReportPage() {
     const [loadingCharts, setLoadingCharts] = useState(true)
     const [ticketByHours, setTicketByHours] = useState<any[]>([])
     const [loadingTab, setLoadingTab] = useState(false)
+    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#a78bfa', '#f472b6'];
     // Lấy danh sách rạp 1 lần khi mount
     useEffect(() => {
         const fetchCinemas = async () => {
@@ -242,7 +234,10 @@ export default function DashboardReportPage() {
         if (value < 0) return <ArrowDownRight className="h-4 w-4 text-red-600" />
         return null
     }
-
+    const pieData = ticketByHours.map(item => ({
+        name: item.timeRange,           // dùng cho label, legend, tooltip
+        value: Number(item.tickets),    // phải là number
+    }));
     const getChangeColor = (value: number) => {
         if (value > 0) return "text-green-600"
         if (value < 0) return "text-red-600"
@@ -292,6 +287,47 @@ export default function DashboardReportPage() {
         //console.log("Chart Data (mở rộng 10 ngày gần nhất):", result)
         return result
     }, [dailyMetrics])
+    const occupancyChartData = useMemo(() => {
+        if (trends.length === 0) return [];
+
+        // Parse ngày "dd/MM" → Date object (giả sử năm 2026 như current time)
+        const parseDate = (dateStr: string) => {
+            const [day, month] = dateStr.split('/');
+            return new Date(2026, Number(month) - 1, Number(day));
+        };
+
+        // Tìm min/max date
+        const dates = trends
+            .map(item => parseDate(item.date))
+            .filter(d => !isNaN(d.getTime()));
+
+        if (dates.length === 0) return [];
+
+        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+
+        // Tạo tất cả ngày từ min → max
+        const allDates: string[] = [];
+        let current = new Date(minDate);
+        while (current <= maxDate) {
+            allDates.push(format(current, "dd/MM"));
+            current = addDays(current, 1);
+        }
+
+        // Map dữ liệu gốc
+        const dataMap = new Map<string, number>();
+        trends.forEach(item => {
+            dataMap.set(item.date.trim(), item.rate ?? 0);
+        });
+
+        // Tạo mảng chart data
+        return allDates.map(dateStr => ({
+            date: dateStr,
+            rate: dataMap.get(dateStr) ?? 0,  // 0 nếu thiếu
+            // Nếu muốn ngắt đường ở ngày không có suất chiếu: dùng null thay 0
+            // rate: dataMap.has(dateStr) ? dataMap.get(dateStr) : null,
+        }));
+    }, [trends]);
     return (
         <div className="space-y-8 p-6">
             {/* Header */}
@@ -756,7 +792,7 @@ export default function DashboardReportPage() {
 
                         {/* Biểu đồ Phân Bổ Theo Khung Giờ (Pie Chart) */}
                         <Card className="shadow-lg border border-gray-200 rounded-xl overflow-hidden">
-                            <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50 pb-3">
+                            <CardHeader className="bg-linear-to-r from-cyan-50 to-blue-50 pb-3">
                                 <CardTitle className="text-xl font-semibold text-cyan-900">Phân Bổ Theo Giờ Chiếu</CardTitle>
                                 <CardDescription className="text-cyan-700">
                                     Lượng vé bán theo khung giờ
@@ -769,65 +805,44 @@ export default function DashboardReportPage() {
                                             <p>Không có dữ liệu phân bổ khung giờ</p>
                                         </div>
                                     ) : (
-                                        <ResponsiveContainer width="100%" height="100%">
-                                           
+                                        <>
+                                            {/* Debug block - chỉ hiển thị để kiểm tra, sau có thể xóa */}
+                                            {/* <div className="bg-red-100 p-4 mb-4 text-red-800 rounded-md">
+                                                <p><strong>Debug trước khi render Pie:</strong></p>
+                                                <pre className="text-xs overflow-auto bg-white p-2 rounded border">
+                                                    {JSON.stringify(ticketByHours, null, 2)}
+                                                </pre>
+                                                <p>Tổng tickets: {ticketByHours.reduce((sum, item) => sum + (Number(item.tickets) || 0), 0)}</p>
+                                                <p>Các tickets riêng lẻ: {ticketByHours.map(item => Number(item.tickets)).join(', ')}</p>
+                                                <p>Types của tickets: {ticketByHours.map(item => typeof item.tickets).join(', ')}</p>
+                                            </div> */}
+                                            <ResponsiveContainer width="100%" height="100%">
 
-                                            <PieChart>
-                                                <Pie
-                                                    data={ticketByHours}
-                                                    dataKey="tickets"
-                                                    nameKey="timeRange"
-                                                    cx="50%"
-                                                    cy="50%"
-                                                    innerRadius={65}
-                                                    outerRadius={110}
-                                                    paddingAngle={4}
 
-                                                    // Label: dùng kiểu chính thức + xử lý undefined
-                                                    label={(props: PieLabelRenderProps) => {
-                                                        const { name, percent } = props;
-                                                        // name có thể undefined → fallback về 'Unknown' hoặc ''
-                                                        const displayName = name ?? 'Khung giờ';
-                                                        return `${displayName}: ${(percent! * 100).toFixed(0)}%`;
-                                                    }}
-
-                                                    labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
-                                                >
-                                                    {ticketByHours.map((entry, index) => (
-                                                        <Cell
-                                                            key={`cell-${index}`}
-                                                            fill={COLORS[index % COLORS.length]}
-                                                        />
-                                                    ))}
-                                                </Pie>
-
-                                                <Tooltip
-                                                    // Formatter: xử lý cả value và name có thể undefined
-                                                    formatter={(
-                                                        value: number | undefined,
-                                                        name: string | undefined,
-                                                        // entry không dùng thì có thể bỏ
-                                                    ) => [
-                                                            `${value ?? 0} vé`,
-                                                            name ?? 'Không xác định'
-                                                        ]}
-
-                                                    contentStyle={{
-                                                        backgroundColor: 'white',
-                                                        border: '1px solid #e2e8f0',
-                                                        borderRadius: '8px',
-                                                        padding: '8px 12px'
-                                                    }}
-                                                />
-
-                                                <Legend
-                                                    layout="horizontal"
-                                                    verticalAlign="bottom"
-                                                    align="center"
-                                                    wrapperStyle={{ paddingTop: '20px' }}
-                                                />
-                                            </PieChart>
-                                        </ResponsiveContainer>
+                                                <PieChart>
+                                                    <Pie
+                                                        data={pieData}
+                                                        dataKey="value"
+                                                        nameKey="name"
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        innerRadius={65}
+                                                        outerRadius={110}
+                                                        paddingAngle={4}
+                                                        // label={...}   ← COMMENT hoặc xóa tạm dòng này
+                                                        labelLine={false}  // cũng tắt line cho chắc
+                                                    >
+                                                        {pieData.map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                        ))}
+                                                    </Pie>
+                                                    {/* <Tooltip
+                                                        formatter={(value: number, name: string) => [`${value} vé`, name]}
+                                                    /> */}
+                                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </>
                                     )}
                                 </div>
                             </CardContent>
@@ -892,6 +907,77 @@ export default function DashboardReportPage() {
                                         )}
                                     </tbody>
                                 </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="hieusuat">
+                    <Card className="shadow-lg border border-gray-200 rounded-xl overflow-hidden">
+                        <CardHeader className="bg-linear-to-r from-emerald-50 to-teal-50 pb-3">
+                            <CardTitle className="text-xl font-semibold text-emerald-900">
+                                Xu Hướng Tỷ Lệ Lấp Đầy
+                            </CardTitle>
+                            <CardDescription className="text-emerald-700">
+                                Tỷ lệ ghế bán được theo ngày (%)
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <div className="h-[420px]">
+                                {occupancyChartData.length === 0 ? (
+                                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                                        Không có dữ liệu tỷ lệ lấp đầy
+                                    </div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart
+                                            data={occupancyChartData}
+                                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+
+                                            <XAxis
+                                                dataKey="date"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#6b7280', fontSize: 12 }}
+                                            />
+
+                                            <YAxis
+                                                domain={[0, 100]}  // tỷ lệ phần trăm, giới hạn 0-100
+                                                tickFormatter={(value) => `${value.toFixed(0)}%`}
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: '#6b7280', fontSize: 12 }}
+                                            />
+
+                                            <Tooltip
+                                                formatter={(value) => [
+                                                    typeof value === 'number' ? `${value.toFixed(2)}%` : 'N/A',
+                                                    "Tỷ lệ lấp đầy"
+                                                ]}
+                                                labelFormatter={(label) => `Ngày: ${label}`}
+                                                contentStyle={{
+                                                    backgroundColor: 'white',
+                                                    border: '1px solid #e2e8f0',
+                                                    borderRadius: '8px',
+                                                    padding: '8px 12px'
+                                                }}
+                                            />
+
+                                            <Line
+                                                type="monotone"
+                                                dataKey="rate"
+                                                name="Tỷ lệ lấp đầy"
+                                                stroke="#10b981"          // màu xanh lá emerald
+                                                strokeWidth={3}
+                                                dot={{ r: 5, strokeWidth: 2, fill: "#fff", stroke: "#10b981" }}
+                                                activeDot={{ r: 8, stroke: "#10b981", strokeWidth: 3 }}
+                                            // connectNulls={false}   // Uncomment nếu dùng null ở ngày thiếu
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

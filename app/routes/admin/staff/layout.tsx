@@ -1,5 +1,5 @@
 // routes/staff/layout.tsx
-import { Navigate, Outlet } from "react-router-dom"
+import { Navigate, Outlet } from "react-router"
 import { useAuthStore } from "~/stores/authAccountStore"
 import { toast } from "sonner"
 import { StaffSidebar } from "~/components/layouts/StaffSidebar"

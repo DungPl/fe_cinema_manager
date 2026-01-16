@@ -1,5 +1,5 @@
 // components/Navbar.tsx
-import { useNavigate, NavLink } from "react-router-dom"
+import { useNavigate, NavLink } from "react-router"
 import {
   Film,
   Search,

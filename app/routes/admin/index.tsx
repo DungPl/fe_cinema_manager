@@ -1,6 +1,6 @@
 // routes/admin/index.tsx
 import { useEffect, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router"
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card"
 import {
   Building2, Store, DoorOpen, Film, Users, Calendar,
@@ -132,9 +132,9 @@ export default function AdminDashboard() {
       visible: !isManager,
     },
     {
-      title: "Khách hàng",
+      title: "Nhân viên",
       icon: Users,
-      to: "/admin/users",
+      to: "/admin/staff",
       count: stats.customers,
       gradient: "from-indigo-500 to-purple-600",
       iconColor: "text-indigo-500",

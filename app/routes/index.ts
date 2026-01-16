@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom"
+import { createBrowserRouter } from "react-router"
 
 // Vite plugin @react-router/dev sẽ tự động import tất cả file trong routes/
 export const router = createBrowserRouter([

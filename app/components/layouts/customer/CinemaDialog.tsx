@@ -18,7 +18,7 @@ import { MapPin } from "lucide-react"
 import type { Cinema } from "~/lib/api/types"
 import { getCinemaByProvince, getCinemaProvinces } from "~/lib/api/cinemaApi"
 import slugify from "slugify"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 
 interface CinemaDialogProps {
   open: boolean

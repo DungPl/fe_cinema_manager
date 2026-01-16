@@ -1,6 +1,6 @@
 import {  useEffect, useState } from "react"
 import type { ReactNode } from "react"
-import {  useLocation,useNavigate } from "react-router-dom"
+import {  useLocation,useNavigate } from "react-router"
 import { useAuthStore } from "~/stores/authAccountStore"
 
 interface AccountRoleGuardProps {

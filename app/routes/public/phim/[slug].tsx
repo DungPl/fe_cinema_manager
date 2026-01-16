@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
+import { useParams } from "react-router"
 import dayjs from "dayjs"
 import "dayjs/locale/vi"
 
@@ -8,7 +8,7 @@ import { Card } from "~/components/ui/card"
 import { Badge } from "~/components/ui/badge"
 import { ScrollArea } from "~/components/ui/scroll-area"
 import { MapPin, Info, User, Users, Play } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import {
   getMovieDetail,
   getShowtimesByMovie,

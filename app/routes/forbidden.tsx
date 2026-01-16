@@ -1,5 +1,5 @@
 // app/routes/forbidden.tsx
-import { Link } from "react-router-dom"
+import { Link } from "react-router"
 import { Button } from "../components/ui/button" // nếu dùng shadcn
 
 export default function Forbidden() {

@@ -1,7 +1,7 @@
 // src/components/layouts/Navbar.tsx
 
 import { useState, useRef, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate } from "react-router"
 import { User, LogOut, Sun, Moon } from "lucide-react"
 import classNames from "classnames"
 

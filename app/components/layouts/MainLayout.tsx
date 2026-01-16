@@ -1,5 +1,5 @@
 // src/app/components/layout/MainLayout.tsx
-import { Outlet } from "react-router-dom"
+import { Outlet } from "react-router"
 import { Navbar } from "./Navbar"
 import { Footer } from "./Footer"
 

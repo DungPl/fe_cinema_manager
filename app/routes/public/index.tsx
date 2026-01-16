@@ -20,7 +20,7 @@ import type {
   Cinema,
   Showtime,
 } from "~/lib/api/types"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog"
 
