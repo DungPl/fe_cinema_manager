@@ -1,5 +1,5 @@
 import { apiClient } from "./client"
-import type { ApiResponse, CreateRoomInput, Format, Room, UpdateRoomInput } from "~/lib/api/types"
+import type { ApiResponse, ApiResponseOne, CreateRoomInput, Format, Room, UpdateRoomInput } from "~/lib/api/types"
 export const getRoomsByCinemaId = async (cinemaId: number): Promise<Room[]> => {
   const res = await apiClient.get<ApiResponse<Room>>(`/cinema/${cinemaId}/rooms`);
 
@@ -20,6 +20,18 @@ export const getRoomsByCinemaId = async (cinemaId: number): Promise<Room[]> => {
 
   return [];
 };
+
+export const getAvailableRoomsByCinemaId = async (
+  cinemaId: number
+): Promise<Room[]> => {
+  const res = await apiClient.get<ApiResponseOne<Room[]>>(
+    `/cinema/${cinemaId}/rooms`,
+     { status: "available" } 
+  );
+
+  return res.data ?? [];
+};
+
 export const getFormats = async (p0: { search: string | undefined; limit: number; }): Promise<Format[]> => {
   const res = await apiClient.get<ApiResponse<Format>>(`/formats`);
 

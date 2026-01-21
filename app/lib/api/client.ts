@@ -90,7 +90,7 @@ class ApiClient {
         try {
           const isAdmin = window.location.pathname.startsWith("/admin")
           const refreshEndpoint = isAdmin 
-            ? "/admin/refresh-token" 
+            ? "/auth/refresh-token" 
             : "/khach-hang/refresh-token"
 
           const refreshResponse = await fetch(`${API_BASE}${refreshEndpoint}`, {

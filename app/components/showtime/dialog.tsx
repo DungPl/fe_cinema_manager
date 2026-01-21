@@ -22,7 +22,7 @@ import { useState, useEffect } from "react"
 // Giả sử API fetch movies, cinemas, rooms
 import { getMovieById, getMovies } from "~/lib/api/movieApi"
 import { getCinemas } from "~/lib/api/cinemaApi"
-import { getRoomsByCinemaId } from "~/lib/api/roomApi"
+import { getAvailableRoomsByCinemaId, getRoomsByCinemaId } from "~/lib/api/roomApi"
 import { createShowtimeBatch, getShowtimeByCinemaAndDate, getShowtimes } from "~/lib/api/showtimeApi"
 import type { Movie, Cinema, Room, Format } from "~/lib/api/types"
 type CreateShowtimeDialogProps = {
@@ -178,7 +178,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
         if (selectedCinema) {
             const fetchRooms = async () => {
                 try {
-                    const roomsRes = await getRoomsByCinemaId(selectedCinema)
+                    const roomsRes = await getAvailableRoomsByCinemaId(selectedCinema)
                     setRooms(roomsRes)
                 } catch (err) {
                     console.error("Lỗi fetch rooms:", err)
