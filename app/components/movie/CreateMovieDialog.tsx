@@ -32,6 +32,8 @@ const GENRE_OPTIONS = [
   "Comedy",
   "Family",
   "Drama",
+  "Mystery",
+  "Fantasy",
   "Horror",
   "Romance",
   "Sci-Fi",

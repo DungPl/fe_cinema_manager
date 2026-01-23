@@ -87,8 +87,8 @@ export const updateRoom = async (roomId: number, data: UpdateRoomInput): Promise
 
 export const deleteRooms = async (roomIds: number[]): Promise<void> => {
   try {
-    await apiClient.delete(`/rooms`, {
-      data: { IDs: roomIds }, // chú ý body khi dùng DELETE
+    await apiClient.delete(`/room`, {
+      ids: roomIds  // gửi body { "ids": [783] }
     });
   } catch (error: any) {
     console.error("Xóa phòng thất bại:", error);

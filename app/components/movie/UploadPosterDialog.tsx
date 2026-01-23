@@ -54,6 +54,7 @@ export default function UploadPosterDialog({ open, onClose, movieId, oldPosters,
   }
 
   // SAVE
+  
   const handleSave = async () => {
     const fd = formDataRef.current
     fd.set("movieId", movieId.toString())
@@ -63,11 +64,12 @@ export default function UploadPosterDialog({ open, onClose, movieId, oldPosters,
     // Nếu chọn poster mới làm poster chính → gửi isPrimary=true
     // Nếu chọn poster cũ → gửi isPrimary=false (backend giữ nguyên poster chính)
     // ---------------------------------
+    
     if (primaryPoster) {
       if (primaryPoster.type === "old") {
         fd.set("primaryPosterId", primaryPoster.id.toString())
       } else if (primaryPoster.type === "new") {
-        fd.set("primaryPosterId", `new_${primaryPoster.index}`)
+        fd.set("primaryPosterId", `new_firtst`)
       }
     }
 
