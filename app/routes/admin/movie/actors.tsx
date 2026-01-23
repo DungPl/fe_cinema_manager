@@ -93,7 +93,7 @@ export default function ActorsPage() {
       toast.error("Xóa thất bại");
     }
   };
-
+  
   // Toggle select 1 row
   const toggleSelect = (id: number) => {
     setSelectedIds(prev =>

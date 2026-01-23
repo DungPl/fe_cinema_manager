@@ -18,6 +18,7 @@ import { getFormats } from "~/lib/api/roomApi"
 import type { Format } from "~/lib/api/types" // Thêm type Format nếu chưa có
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "~/components/ui/command"
+import { DirectorMultiCombobox } from "./DirectorMultiCombobox"
 
 interface CreateMovieDialogProps {
     open: boolean
@@ -28,93 +29,93 @@ interface CreateMovieDialogProps {
 
 const AGE_OPTIONS = ["P", "K", "T13", "T16", "T18"] as const
 const GENRE_OPTIONS = [
-  "Action",
-  "Comedy",
-  "Family",
-  "Drama",
-  "Mystery",
-  "Fantasy",
-  "Horror",
-  "Romance",
-  "Sci-Fi",
-  "Animation",
-  "Adventure",
-  "Thriller",
+    "Action",
+    "Comedy",
+    "Family",
+    "Crime",
+    "Drama",
+    "Mystery",
+    "Fantasy",
+    "Horror",
+    "Romance",
+    "Sci-Fi",
+    "Animation",
+    "Adventure",
+    "Thriller",
 ] as const
 
 type Genre = typeof GENRE_OPTIONS[number] | string // Cho phép thêm genre tùy chỉnh
 
 function GenreMultiSelect({
-  value,
-  onChange,
+    value,
+    onChange,
 }: {
-  value: Genre[]
-  onChange: (genres: Genre[]) => void
+    value: Genre[]
+    onChange: (genres: Genre[]) => void
 }) {
-  const [open, setOpen] = useState(false)
+    const [open, setOpen] = useState(false)
 
-  const toggleGenre = (genre: Genre) => {
-    if (value.includes(genre)) {
-      onChange(value.filter(g => g !== genre))
-    } else {
-      onChange([...value, genre])
+    const toggleGenre = (genre: Genre) => {
+        if (value.includes(genre)) {
+            onChange(value.filter(g => g !== genre))
+        } else {
+            onChange([...value, genre])
+        }
     }
-  }
 
-  return (
-    <div>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" className="w-full justify-between">
-            {value.length > 0
-              ? `${value.length} thể loại được chọn`
-              : "Chọn thể loại"}
-            <ChevronsUpDown className="h-4 w-4 opacity-50" />
-          </Button>
-        </PopoverTrigger>
+    return (
+        <div>
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                        {value.length > 0
+                            ? `${value.length} thể loại được chọn`
+                            : "Chọn thể loại"}
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
 
-        <PopoverContent className="w-full p-0">
-          <Command>
-            <CommandGroup>
-              {GENRE_OPTIONS.map(genre => {
-                const selected = value.includes(genre)
-                return (
-                  <CommandItem
-                    key={genre}
-                    onSelect={() => toggleGenre(genre)}
-                  >
-                    <Check
-                      className={`mr-2 h-4 w-4 ${
-                        selected ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
-                    {genre}
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                <PopoverContent className="w-full p-0">
+                    <Command>
+                        <CommandGroup>
+                            {GENRE_OPTIONS.map(genre => {
+                                const selected = value.includes(genre)
+                                return (
+                                    <CommandItem
+                                        key={genre}
+                                        onSelect={() => toggleGenre(genre)}
+                                    >
+                                        <Check
+                                            className={`mr-2 h-4 w-4 ${selected ? "opacity-100" : "opacity-0"
+                                                }`}
+                                        />
+                                        {genre}
+                                    </CommandItem>
+                                )
+                            })}
+                        </CommandGroup>
+                    </Command>
+                </PopoverContent>
+            </Popover>
 
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {value.map(g => (
-            <Badge key={g} variant="secondary">
-              {g}
-              <button
-                type="button"
-                className="ml-2"
-                onClick={() => onChange(value.filter(x => x !== g))}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
+            {value.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                    {value.map(g => (
+                        <Badge key={g} variant="secondary">
+                            {g}
+                            <button
+                                type="button"
+                                className="ml-2"
+                                onClick={() => onChange(value.filter(x => x !== g))}
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
+                        </Badge>
+                    ))}
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  )
+    )
 }
 
 // Component mới cho multi-select Formats (tương tự ActorMultiCombobox)
@@ -191,7 +192,8 @@ function FormatMultiCombobox({ value, onChange }: { value: Format[]; onChange: (
 
 export function CreateMovieDialog({ open, onOpenChange, onSave, onSuccess }: CreateMovieDialogProps) {
     const formDataRef = useRef<FormData>(new FormData())
-    const [selectedDirector, setSelectedDirector] = useState<Director | null>(null)
+    const [selectedDirectors, setSelectedDirectors] = useState<Director[]>([])
+
     const [selectedActors, setSelectedActors] = useState<Actor[]>([])
     const [selectedFormats, setSelectedFormats] = useState<Format[]>([]) // Mới: cho formats
     const [genres, setGenres] = useState<Genre[]>([]) // Thêm state cho genres
@@ -200,7 +202,7 @@ export function CreateMovieDialog({ open, onOpenChange, onSave, onSuccess }: Cre
     useEffect(() => {
         if (!open) {
             formDataRef.current = new FormData()  // Reset FormData
-            setSelectedDirector(null)
+            setSelectedDirectors([])
             setSelectedActors([])
             setSelectedFormats([])
             setGenres([]) // Reset genres
@@ -224,15 +226,19 @@ export function CreateMovieDialog({ open, onOpenChange, onSave, onSuccess }: Cre
         }
         if (!fd.get("title")) return toast.error("Vui lòng nhập tiêu đề")
         if (genres.length === 0) return toast.error("Vui lòng thêm ít nhất 1 thể loại")
-        if (!selectedDirector) return toast.error("Vui lòng chọn đạo diễn")
+        if (selectedDirectors.length === 0)
+            return toast.error("Vui lòng chọn ít nhất 1 đạo diễn")
+
         if (selectedActors.length === 0) return toast.error("Vui lòng chọn ít nhất 1 diễn viên")
         if (selectedFormats.length === 0) return toast.error("Vui lòng chọn định dạng")
 
         // Gắn dữ liệu còn thiếu
         fd.set("genre", genres.join(", "))
-        if (selectedDirector?.id) {
-            fd.set("directorId", selectedDirector.id.toString())
-        }
+        selectedDirectors.forEach(d => {
+            if (d.id) fd.append("directorIds", d.id.toString())
+            else fd.append("directorNames", d.name)
+        })
+
         selectedActors.forEach(a => {
             if (a.id) fd.append("actorIds", a.id.toString())
             else fd.append("actorNames", a.name)
@@ -308,7 +314,7 @@ export function CreateMovieDialog({ open, onOpenChange, onSave, onSuccess }: Cre
                     {/* Đạo diễn */}
                     <div>
                         <Label>Đạo diễn <span className="text-red-500">*</span></Label>
-                        <DirectorCombobox value={selectedDirector} onChange={setSelectedDirector} />
+                        <DirectorMultiCombobox value={selectedDirectors} onChange={setSelectedDirectors} />
                     </div>
 
                     {/* Diễn viên */}

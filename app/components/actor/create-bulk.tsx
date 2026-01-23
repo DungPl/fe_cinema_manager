@@ -17,7 +17,7 @@ export const BatchActorDialog = ({ isOpen, onClose, onSave }: BatchActorDialogPr
 
   const handleSubmit = async () => {
     const names = namesInput
-      .split(/\n|,/g) // Parse bằng dòng mới hoặc dấu phẩy
+      .split(/\n|,/g)
       .map(name => name.trim())
       .filter(name => name.length > 0);
 
@@ -27,14 +27,41 @@ export const BatchActorDialog = ({ isOpen, onClose, onSave }: BatchActorDialogPr
     }
 
     setLoading(true);
+
     try {
-      await onSave(names);
-    } catch {
-      // Page handles error
+      await onSave(names);  // hoặc createActors(names)
+
+      // Chỉ thành công thật sự mới toast success và đóng dialog
+      //toast.success("Thêm diễn viên thành công!");
+      // setNamesInput("");           // reset input
+      // onClose();                   // chỉ đóng khi OK
+    } catch (error: any) {
+      console.error("Lỗi thêm diễn viên:", error);
+
+      let displayMessage = "Có lỗi xảy ra khi thêm diễn viên";
+
+      if (error.response?.data?.error) {
+        displayMessage = error.response.data.error;
+      } else if (error.response?.data?.message) {
+        displayMessage = error.response.data.message;
+      } else if (error.message) {
+        displayMessage = error.message;
+      }
+
+      // Hiển thị toast lỗi, nhưng KHÔNG đóng dialog
+      toast.error(displayMessage, {
+        duration: 8000,  // cho người dùng đọc kỹ danh sách trùng
+        position: "top-center",
+        style: {
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        },
+      });
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

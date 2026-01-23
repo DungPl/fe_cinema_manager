@@ -69,7 +69,7 @@ export default function UploadPosterDialog({ open, onClose, movieId, oldPosters,
       if (primaryPoster.type === "old") {
         fd.set("primaryPosterId", primaryPoster.id.toString())
       } else if (primaryPoster.type === "new") {
-        fd.set("primaryPosterId", `new_firtst`)
+        fd.set("primaryPosterId", `new_first`)
       }
     }
 
