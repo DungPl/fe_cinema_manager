@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover
 import { Calendar } from "~/components/ui/calendar"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
-import { CalendarIcon, Search as SearchIcon, Clock as ClockIcon, Clock, MapPin } from "lucide-react"
+import { CalendarIcon, Search as SearchIcon, Clock as ClockIcon, Clock, MapPin, ChevronsUpDown, Check } from "lucide-react"
 import { AlertTriangle } from "lucide-react"
 
 // API fetch showtimes và cinemas
@@ -22,6 +22,8 @@ import { Button } from "~/components/ui/button"
 import React from "react"
 import { toast } from "sonner"
 import { EditShowtimeDialog } from "~/components/showtime/EditShowtimeDialog"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command"
+import { cn } from "~/lib/utils"
 
 export const safeFormat = (value?: string, pattern: string = "dd/MM/yyyy") => {
     if (!value) return "—"; // Không có giá trị → hiển thị dấu gạch
@@ -68,6 +70,12 @@ export default function ScheduleManagement() {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date())
     const [selectedArea, setSelectedArea] = useState("Tất cả khu vực")
     const [selectedCinema, setSelectedCinema] = useState("Tất cả rạp")
+    const [openArea, setOpenArea] = useState(false)
+    const [valueArea, setValueArea] = useState(selectedArea)
+
+    // Tương tự cho rạp
+    const [openCinema, setOpenCinema] = useState(false)
+    const [valueCinema, setValueCinema] = useState(selectedCinema)
     const [totalShowtimes, setTotalShowtimes] = useState(0)
     const [totalRevenue, setTotalRevenue] = useState(0)
     const [averageFillRate, setAverageFillRate] = useState(0)
@@ -105,34 +113,33 @@ export default function ScheduleManagement() {
 
     // Fetch showtimes theo ngày, khu vực và rạp (filter server-side)
     useEffect(() => {
+        if (!cinemasList.length) return;
         const fetchShowtimes = async () => {
             try {
-                const dateStr = format(selectedDate, "yyyy-MM-dd")
+                const dateStr = format(selectedDate, "yyyy-MM-dd");
                 const params: any = { startDate: dateStr };
 
-                // Truyền Province nếu không phải "Tất cả"
                 if (selectedArea !== "Tất cả khu vực") {
                     params.province = selectedArea;
                 }
 
-                // Truyền CinemaId nếu không phải "Tất cả" (map từ name sang id)
                 if (selectedCinema !== "Tất cả rạp") {
                     const cinemaId = cinemasList.find(c => c.name === selectedCinema)?.id;
-                    if (cinemaId) {
-                        params.cinemaId = cinemaId;
-                    }
+                    if (!cinemaId) return; // ← Guard: nếu không tìm thấy id → skip
+                    params.cinemaId = cinemaId;
                 }
 
-                const res = await getShowtimes(params)
-                setShowtimes(res)
-                setNoData(res.length === 0)  // Kiểm tra không có dữ liệu
+                const res = await getShowtimes(params);
+                setShowtimes(res);
+                setNoData(res.length === 0);
             } catch (err) {
-                console.error("Lỗi fetch showtimes:", err)
-                setNoData(true)
+                console.error("Lỗi fetch showtimes:", err);
+                setNoData(true);
             }
-        }
-        fetchShowtimes()
-    }, [selectedDate, selectedArea, selectedCinema])  // Phụ thuộc vào ngày, khu vực, rạp
+        };
+
+        fetchShowtimes();
+    }, [selectedDate, selectedArea, selectedCinema, cinemasList]);  // Phụ thuộc vào ngày, khu vực, rạp
 
     // Filter client-side chỉ cho searchTerm (nếu cần, nhưng giờ filter chủ yếu server-side)
     useEffect(() => {
@@ -161,10 +168,22 @@ export default function ScheduleManagement() {
     const rawAreas = cinemasList.map(c => c.address?.[0]?.province ?? "")
     const uniqueAreas = Array.from(new Set(rawAreas)).filter(Boolean).sort()
     const areas = ["Tất cả khu vực", ...uniqueAreas]
+    const filteredCinemas = React.useMemo(() => {
+        if (selectedArea === "Tất cả khu vực") {
+            return cinemasList
+        }
+
+        return cinemasList.filter(
+            c => c.address?.[0]?.province === selectedArea
+        )
+    }, [cinemasList, selectedArea])
 
     const uniqueCinemas = Array.from(new Set(cinemasList.map(c => c.name ?? ""))).filter(Boolean).sort()
     const cinemas = ["Tất cả rạp", ...uniqueCinemas]
-
+    useEffect(() => {
+        setValueCinema("Tất cả rạp")
+        setSelectedCinema("Tất cả rạp")
+    }, [selectedArea])
     // Hàm tính vị trí cho timeline
     const getTimePosition = (time?: string) => {
         if (!time) return 0;
@@ -255,7 +274,7 @@ export default function ScheduleManagement() {
                     <div className="p-2 bg-green-100 rounded-full mr-3">
                         <span className="text-green-600 text-xl">✓</span>
                     </div>
-                    <div>   
+                    <div>
                         <p className="text-sm text-gray-600">Doanh thu thực nhận</p>
                         <p className="text-2xl font-bold text-green-600">
                             {filteredShowtimes.reduce((sum, s) => sum + (s.actual_revenue || 0), 0).toLocaleString("vi-VN")} đ
@@ -285,7 +304,7 @@ export default function ScheduleManagement() {
                 </div>
                 <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-[180px] justify-between">
+                        <Button variant="outline" className="w-45 justify-between">
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {format(selectedDate, "dd/MM/yyyy", { locale: vi })}
                         </Button>
@@ -294,30 +313,127 @@ export default function ScheduleManagement() {
                         <Calendar mode="single" selected={selectedDate} onSelect={(date) => date && setSelectedDate(date)} initialFocus />
                     </PopoverContent>
                 </Popover>
-                <Select value={selectedArea} onValueChange={setSelectedArea}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {areas.map(area => <SelectItem key={area} value={area}>{area}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                <Select value={selectedCinema} onValueChange={setSelectedCinema}>
-                    <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Chọn rạp" />
-                    </SelectTrigger>
 
-                    {/* Giới hạn chiều cao + bật scroll */}
-                    <SelectContent className="max-h-60 overflow-y-auto">
-                        <SelectItem value="Tất cả rạp">Tất cả rạp</SelectItem>
+                <Popover open={openArea} onOpenChange={setOpenArea}>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" className="w-62.5 justify-between">
+                            {valueArea || "Chọn khu vực"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
 
-                        {cinemasList.map(cinema => (
-                            <SelectItem key={cinema.id} value={cinema.name}>
-                                {cinema.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                    <PopoverContent className="w-62.5 p-0">
+                        <Command>
+                            <CommandInput placeholder="Tìm khu vực..." />
+                            <CommandList className="max-h-60 overflow-y-auto">
+                                <CommandEmpty>Không tìm thấy khu vực.</CommandEmpty>
+
+                                <CommandGroup>
+                                    <CommandItem
+                                        value="Tất cả khu vực"
+                                        onSelect={() => {
+                                            setValueArea("Tất cả khu vực")
+                                            setSelectedArea("Tất cả khu vực")
+                                            setOpenArea(false)
+                                        }}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                valueArea === "Tất cả khu vực" ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        Tất cả khu vực
+                                    </CommandItem>
+
+                                    {uniqueAreas.map((area) => (
+                                        <CommandItem
+                                            key={area}
+                                            value={area}
+                                            onSelect={() => {
+                                                setValueArea(area)
+                                                setSelectedArea(area)
+                                                setOpenArea(false)
+                                            }}
+                                        >
+                                            <Check
+                                                className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    valueArea === area ? "opacity-100" : "opacity-0"
+                                                )}
+                                            />
+                                            {area}
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+
+                {/* Combobox Rạp */}
+                <Popover open={openCinema} onOpenChange={setOpenCinema}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openCinema}
+                            className="w-62.5 justify-between"
+                        >
+                            {valueCinema
+                                ? cinemasList.find((c) => c.name === valueCinema)?.name
+                                : "Chọn rạp"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-62.5 p-0">
+                        <Command>
+                            <CommandInput placeholder="Tìm rạp..." />
+                            <CommandList className="max-h-60 overflow-y-auto">
+                                <CommandEmpty>Không tìm thấy rạp.</CommandEmpty>
+                                <CommandGroup>
+                                    <CommandItem
+                                        value="Tất cả rạp"
+                                        onSelect={(currentValue) => {
+                                            setValueCinema("Tất cả rạp");
+                                            setSelectedCinema("Tất cả rạp");
+                                            setOpenCinema(false);
+                                        }}
+                                    >
+                                        <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                valueCinema === "Tất cả rạp" ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                        Tất cả rạp
+                                    </CommandItem>
+
+                                    {filteredCinemas.map((cinema) => (
+                                        <CommandItem
+                                            key={cinema.id}
+                                            value={cinema.name}
+                                            onSelect={(currentValue) => {
+                                                setValueCinema(currentValue)
+                                                setSelectedCinema(currentValue)
+                                                setOpenCinema(false)
+                                            }}
+                                        >
+                                            <Check
+                                                className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    valueCinema === cinema.name ? "opacity-100" : "opacity-0"
+                                                )}
+                                            />
+                                            {cinema.name}
+                                        </CommandItem>
+                                    ))}
+
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
             </div>
 
             <Tabs defaultValue="list">

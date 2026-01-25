@@ -58,9 +58,25 @@ export default function DirectorsPage() {
       setDialogOpen(false)
       setEditing(null)
       loadDirectors()
-    } catch (err: any) {
-      toast.error(err.message || "Lưu thất bại")
+    } catch (error: any) {
+      console.error("Lỗi thêm đạo diễn:", error)
+
+      let displayMessage = "Có lỗi xảy ra khi thêm đạo diễn"
+
+      if (error.response?.data?.message) {
+        displayMessage = error.response.data.message
+      }
+
+      toast.error(displayMessage, {
+        duration: 8000,
+        position: "top-center",
+        style: {
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        },
+      })
     }
+
   }
 
   const handleDeleteSelected = async () => {

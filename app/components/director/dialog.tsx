@@ -78,8 +78,22 @@ export function DirectorDialog({ open, onClose, onSave, initialData }: DirectorD
     try {
       await onSave(formData)
       onClose()
-    } catch (err: any) {
-      toast.error(err.message || "Lưu thất bại")
+    } catch (error: any) {
+      console.error("Lỗi thêm diễn viên:", error);
+
+      let displayMessage = "Có lỗi xảy ra khi thêm diễn viên";
+
+      if (error.response?.data?.error) {
+        displayMessage = error.response.data.error;
+        toast.error(displayMessage, {
+          duration: 8000,  // cho người dùng đọc kỹ danh sách trùng
+          position: "top-center",
+          style: {
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          },
+        });
+      }
     }
   }
 

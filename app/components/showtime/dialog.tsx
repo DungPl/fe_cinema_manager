@@ -119,6 +119,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
     const [isFetchingMovie, setIsFetchingMovie] = useState(false);
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [existingShowtimes, setExistingShowtimes] = useState<any[]>([])
+    const [isLoadingExisting, setIsLoadingExisting] = useState(false);
     // Fetch data
     useEffect(() => {
         const fetchData = async () => {
@@ -209,6 +210,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             setIsFetchingMovie(false);
         }
     };
+
     // Form
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -229,12 +231,34 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
     const watchedStartDate = watch("startDate")
     const watchedEndDate = watch("endDate")
     const watchedCinemaId = watch("cinemaId")
-    // console.log("Fetch với:", {
-    // cinemaId: watchedCinemaId,
-    // dateStart: watchedStartDate,
-    // dateEnd: watchedEndDate
-    // });
-    // Fetch existing showtimes
+    useEffect(() => {
+        const fetchExisting = async () => {
+            if (!watchedCinemaId || !watchedStartDate || !watchedEndDate) return;
+
+            setIsLoadingExisting(true);
+            try {
+                let fetchDate = new Date(watchedStartDate);
+                const lastDate = new Date(watchedEndDate);
+                const allExisting: any[] = [];
+
+                while (fetchDate <= lastDate) {
+                    const dateStr = formatDate(fetchDate, "yyyy-MM-dd");
+                    const showtimes = await getShowtimeByCinemaAndDate(Number(watchedCinemaId), dateStr);
+                    if (Array.isArray(showtimes)) allExisting.push(...showtimes);
+                    fetchDate = addDays(fetchDate, 1);
+                }
+
+                setExistingShowtimes(allExisting);
+            } catch (err) {
+                console.error("Lỗi fetch existing:", err);
+                setExistingShowtimes([]);
+            } finally {
+                setIsLoadingExisting(false);
+            }
+        };
+
+        fetchExisting();
+    }, [watchedCinemaId, watchedStartDate, watchedEndDate]);
     useEffect(() => {
         const parseTimeOnDate = (date: Date, hhmm: string) => {
             return new Date(date.getFullYear(), date.getMonth(), date.getDate(), ...hhmm.split(":").map(Number));
@@ -242,6 +266,11 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
         const isOverlap = (aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) => {
             return aStart < bEnd && bStart < aEnd;
         };
+
+        const hasMinGap = (aEnd: Date, bStart: Date, minGapMs: number) => {
+            return bStart.getTime() - aEnd.getTime() >= minGapMs;
+        };
+
         const DEBUG = true; // set false to silence debug logs
         const subscription = watch(async (value) => {
             if (
@@ -290,9 +319,15 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                         imaxLateCountPerDay[dateKey] = 0;
                         // build map of existing by room for this date (use allExisting local!)
                         const existingByRoom = new Map<number, any[]>();
-                        for (const s of allExisting) {
-                            const sDate = s.start.split('T')[0]; // Extract date from string to avoid timezone issues
+                        for (const s of allExisting) {  // ← Dùng state thay vì allExisting local
+                            const sDate = new Date(s.start).toLocaleDateString('en-CA', { // 'en-CA' cho yyyy-MM-dd chuẩn
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                timeZone: 'Asia/Ho_Chi_Minh' // Đồng bộ timezone VN
+                            }).replace(/\//g, '-'); // Đồng bộ format yyyy-MM-dd
                             if (sDate !== dateKey) continue;
+
                             const rid = Number(s.roomId);
                             if (!existingByRoom.has(rid)) existingByRoom.set(rid, []);
                             existingByRoom.get(rid)!.push(s);
@@ -377,7 +412,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         }
                                     }
                                     if (conflictingExisting.length > 0) {
-                                        //if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
+                                        if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
                                         skipped++;
                                         skippedPreviews.push({
                                             date: formatDate(previewDate, "dd/MM/yyyy"),
@@ -396,31 +431,60 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         continue;
                                     }
                                     // --- CHECK WITH PREVIEWS IN SAME ROOM ---
-                                    const roomPreviews = previews.filter(p => p.roomId === roomIdNum && p.date === formatDate(previewDate, "dd/MM/yyyy"));
+                                    // CHECK WITH PREVIEWS IN SAME ROOM
+                                    const roomPreviews = previews.filter(
+                                        p => p.roomId === roomIdNum && p.date === formatDate(previewDate, "dd/MM/yyyy")
+                                    );
+
                                     let conflictingPreviews: any[] = [];
+
                                     for (const p of roomPreviews) {
                                         const pStart = parseTimeOnDate(previewDate, p.startTime);
                                         const pEnd = parseTimeOnDate(previewDate, p.endTime);
-                                        if (isOverlap(startTime, endTime, pStart, pEnd) ||
-                                            (endTime <= pStart && (pStart.getTime() - endTime.getTime()) < min_gap_in_room_ms) ||
-                                            (pEnd <= startTime && (startTime.getTime() - pEnd.getTime()) < min_gap_in_room_ms)
-                                        ) {
+
+                                        const isOverlapping = isOverlap(startTime, endTime, pStart, pEnd);
+
+                                        const gapBeforeTooSmall = pEnd < startTime && (startTime.getTime() - pEnd.getTime() < min_gap_in_room_ms);
+                                        const gapAfterTooSmall = endTime < pStart && (pStart.getTime() - endTime.getTime() < min_gap_in_room_ms);
+
+                                        if (isOverlapping || gapBeforeTooSmall || gapAfterTooSmall) {
                                             conflictingPreviews.push(p);
-                                            break;
+                                            // Có thể break sớm nếu chỉ cần phát hiện có xung đột (tăng hiệu suất)
+                                            // break;
                                         }
                                     }
+
                                     if (conflictingPreviews.length > 0) {
-                                        //if (DEBUG) console.log("Conflicting previews:", conflictingPreviews);
+                                        if (DEBUG) {
+                                            console.log("Conflicting previews found:", conflictingPreviews.map(p => ({
+                                                format: p.format,
+                                                time: `${p.startTime} → ${p.endTime}`
+                                            })));
+                                        }
+
                                         skipped++;
+
+                                        const isTrueOverlap = conflictingPreviews.some(p =>
+                                            isOverlap(
+                                                startTime,
+                                                endTime,
+                                                parseTimeOnDate(previewDate, p.startTime),
+                                                parseTimeOnDate(previewDate, p.endTime)
+                                            )
+                                        );
+
                                         skippedPreviews.push({
                                             date: formatDate(previewDate, "dd/MM/yyyy"),
                                             room: room.name,
                                             format,
                                             startTime: formatDate(startTime, "HH:mm"),
                                             endTime: formatDate(endTime, "HH:mm"),
-                                            reason: conflictingPreviews.some((p: any) => isOverlap(startTime, endTime, parseTimeOnDate(previewDate, p.startTime), parseTimeOnDate(previewDate, p.endTime))) ? "Trùng lịch phòng (preview)" : "Khoảng cách suất chiếu trong phòng quá gần (preview)",
-                                            conflicts: conflictingPreviews.map((c: any) => `${c.format} (${c.startTime}-${c.endTime})`)
+                                            reason: isTrueOverlap
+                                                ? "Trùng lịch phòng (preview - chồng lấn)"
+                                                : "Khoảng cách suất chiếu trong phòng quá gần (preview)",
+                                            conflicts: conflictingPreviews.map(c => `${c.format} (${c.startTime}-${c.endTime})`)
                                         });
+
                                         continue;
                                     }
                                     // --- NEARBY checks (other rooms) using allExisting ---
@@ -490,6 +554,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
         });
         return () => subscription.unsubscribe();
     }, [watch, rooms]);
+
     // onSubmit
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         setIsSubmitting(true)
@@ -511,7 +576,8 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             form.reset()
             refreshShowtimes()
         } catch (err: any) {
-            toast.error(err.message || "Không thể tạo suất chiếu")
+            console.log(err)
+            toast.error(err.response.data.message || "Không thể tạo suất chiếu")
         } finally {
             setIsSubmitting(false)
         }

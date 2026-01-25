@@ -529,7 +529,7 @@ export interface CreateShowtimeBatchInput {
 }
 export interface UpdateShowtime {
   movieId: number;
-  roomIds: number[];
+  roomId: number;
   start_time: string
   price: number
 }

@@ -255,9 +255,10 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                     const endTime = addMinutes(startTime, movieDuration);
 
                     // dynamic min gap in same room
-                    const hourAfterShift = startTime.getHours();
-                    const min_gap_in_room_minutes = (hourAfterShift >= breakStartHour && hourAfterShift < breakEndHour) ? 30 : 10;
-                    const min_gap_in_room_ms = min_gap_in_room_minutes * 60 * 1000;
+                    const getMinGap = (prevEnd: Date) => {
+                        const h = prevEnd.getHours();
+                        return (h >= 11 && h < 14) ? 30 : 10;
+                    };
 
                     // IMAX late limit (nếu áp dụng)
                     if (format === "IMAX" && startTime.getHours() >= 22) {
@@ -286,9 +287,11 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                         if (s.id === editingShowtime.id) continue;  // Exclude self
                         const sStart = toLocalDate(s.start);
                         const sEnd = toLocalDate(s.end);
-                        if (isOverlap(startTime, endTime, sStart, sEnd) ||
-                            (endTime <= sStart && (sStart.getTime() - endTime.getTime()) < min_gap_in_room_ms) ||
-                            (sEnd <= startTime && (startTime.getTime() - sEnd.getTime()) < min_gap_in_room_ms)
+                        const minGapMs = getMinGap(sEnd) * 60 * 1000;
+                        if (
+                            isOverlap(startTime, endTime, sStart, sEnd) ||
+                            (endTime <= sStart && (sStart.getTime() - endTime.getTime()) < minGapMs) ||
+                            (sEnd <= startTime && (startTime.getTime() - sEnd.getTime()) < minGapMs)
                         ) {
                             conflictingExisting.push(s);
                         }
@@ -371,8 +374,9 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
         try {
             const payload = {
                 movieId: Number(values.movieId),
-                roomIds: [Number(values.roomId)],
-                start_time: `${format(values.startDate, "yyyy-MM-dd")}T${values.startTime}:00`,  // Format cho backend
+                roomId: Number(values.roomId),
+                start_time: `${format(values.startDate, "yyyy-MM-dd")}T${values.startTime}:00+07:00`,
+                // Format cho backend
                 price: values.price,
             }
             await updateShowtime(editingShowtime.id, payload)  // Giả sử API update
