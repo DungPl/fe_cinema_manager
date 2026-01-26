@@ -257,7 +257,7 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                     // dynamic min gap in same room
                     const getMinGap = (prevEnd: Date) => {
                         const h = prevEnd.getHours();
-                        return (h >= 11 && h < 14) ? 30 : 10;
+                        return (h >= 11 && h < 14) ? 20 : 10;
                     };
 
                     // IMAX late limit (nếu áp dụng)

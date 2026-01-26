@@ -352,12 +352,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     if (dailyCreatedByFormat[format] >= maxPerDay) break;
                                     // base startTime from slot on previewDate
                                     let startTime = parseTimeOnDate(previewDate, slot);
-                                    // lunch break shift
-                                    // if (startTime.getHours() >= breakStartHour && startTime.getHours() < breakEndHour) {
-                                    // startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), breakEndHour, 0, 0);
-                                    // startTime = addMinutes(startTime, extraBreakTime);
-                                    // }
-                                    // idx from orderedRoomIds (stable)
                                     const idx = orderedRoomIds.indexOf(roomIdNum);
                                     if (idx === -1) { skipped++; continue; }
                                     // apply offset
@@ -385,9 +379,11 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     const endTime = addMinutes(startTime, movie.duration || 120);
                                     // dynamic min gap in same room
                                     const hourAfterShift = startTime.getHours();
-                                    const min_gap_in_room_minutes = (hourAfterShift >= breakStartHour && hourAfterShift < breakEndHour) ? 30 : 10;
+                                    const hourBeforeShift = endTime.getHours();
+                                    const min_gap_in_room_minutes = (hourAfterShift >= breakStartHour && hourBeforeShift < breakEndHour) ? 20 : 10;
                                     const min_gap_in_room_ms = min_gap_in_room_minutes * 60 * 1000;
                                     // IMAX late limit
+                                    console.log("Thời gian nghỉ ",min_gap_in_room_ms)
                                     if (format === "IMAX" && startTime.getHours() >= 22) {
                                         if ((imaxLateCountPerDay[dateKey] ?? 0) >= 1) {
                                             skipped++;
@@ -403,6 +399,8 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     for (const s of roomExisting) {
                                         const sStart = toLocalDate(s.start);
                                         const sEnd = toLocalDate(s.end);
+                                        // Gap mặc định
+                                       
                                         if (isOverlap(startTime, endTime, sStart, sEnd) ||
                                             (endTime <= sStart && (sStart.getTime() - endTime.getTime()) < min_gap_in_room_ms) ||
                                             (sEnd <= startTime && (startTime.getTime() - sEnd.getTime()) < min_gap_in_room_ms)
@@ -414,13 +412,19 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     if (conflictingExisting.length > 0) {
                                         if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
                                         skipped++;
+                                        const hasTrueOverlap = conflictingExisting.some(s =>
+                                            isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))
+                                        );
                                         skippedPreviews.push({
                                             date: formatDate(previewDate, "dd/MM/yyyy"),
                                             room: room.name,
                                             format,
                                             startTime: formatDate(startTime, "HH:mm"),
                                             endTime: formatDate(endTime, "HH:mm"),
-                                            reason: conflictingExisting.some((s: any) => isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))) ? "Trùng lịch phòng (tồn tại)" : "Khoảng cách suất chiếu trong phòng quá gần (tồn tại)",
+                                            //reason: conflictingExisting.some((s: any) => isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))) ? "Trùng lịch phòng (tồn tại)" : "Khoảng cách suất chiếu trong phòng quá gần (tồn tại)",
+                                            reason: hasTrueOverlap
+                                                ? "Trùng lịch phòng (tồn tại - chồng lấn)"
+                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${hasTrueOverlap ? 10 : 20} phút)`,
                                             conflicts: conflictingExisting.map((c: any) => {
                                                 const title = c.Movie?.title || "Phim khác";
                                                 const start = formatDate(toLocalDate(c.start), "HH:mm");
