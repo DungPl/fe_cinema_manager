@@ -13,7 +13,10 @@ import { useAuthStore } from "~/stores/authCustomerStore"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-
+import * as z from "zod"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form"
 // Interface cho staff
 interface StaffShowtime {
   id: number
@@ -68,18 +71,37 @@ export default function BookingSummary({
 
   // Mặc định MOMO cho khách online, CASH cho staff
   //const [paymentMethod, setPaymentMethod] = useState<string>(isStaff ? "CASH" : "MOMO")
-
+  const customerInfoSchema = z.object({
+    name: z.string().min(2, "Tên phải từ 2 ký tự trở lên"),
+    phone: z
+      .string()
+      .regex(/^(0|\+84)(3|5|7|8|9)[0-9]{8}$/, "Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0 hoặc +84)"),
+    email: z.string().email("Email không hợp lệ"),
+    paymentMethod: z.string().min(1, "Vui lòng chọn phương thức thanh toán"),
+  });
 
   // Đồng bộ ref mỗi khi state thay đổi
-
+  const form = useForm<z.infer<typeof customerInfoSchema>>({
+    resolver: zodResolver(customerInfoSchema),
+    mode: "onChange", // ⭐ QUAN TRỌNG
+    defaultValues: {
+      name: customer?.username || "",
+      phone: customer?.phone || "",
+      email: customer?.email || "",
+      paymentMethod: isStaff ? "CASH" : undefined, // ⭐ KHÔNG dùng ""
+    },
+  });
   useEffect(() => {
+    const values = form.getValues();
     onCustomerInfoChange?.({
-      name,
-      phone,
-      email,
-    })
-  }, [name, phone, email, onCustomerInfoChange])
-
+      name: values.name,
+      phone: values.phone,
+      email: values.email,
+    });
+  }, [form.watch(), onCustomerInfoChange]);
+  // useEffect(() => {
+  //   form.setValue("paymentMethod", paymentMethod);
+  // }, [paymentMethod, form]);
   const [error, setError] = useState<string | null>(null)
 
   // Tính giá an toàn
@@ -176,10 +198,19 @@ export default function BookingSummary({
 
   const grouped = groupedSeats()
 
-  const handleProceed = useCallback(() => {
-    if (!validateCustomerInfo()) return
+  const handleProceed = useCallback(async () => {
+    const isValid = await form.trigger([
+      "name",
+      "phone",
+      "email",
+      "paymentMethod"
+    ]);
 
-
+    if (!isValid) {
+      setError("Vui lòng chọn phương thức thanh toán và kiểm tra thông tin liên hệ");
+      return;
+    }
+    const values = form.getValues();
 
     const paymentInfo = {
       code,
@@ -188,14 +219,14 @@ export default function BookingSummary({
       startTime: startTimeStr,
       selectedSeats: selectedSeats.map(s => ({ id: s.id, label: s.label, type: s.type, priceModifier: s.priceModifier || 1, coupleId: s.coupleId })),
       heldBy,
-      name: name.trim(),
-      phone: phone.trim(),
-      email: email.trim(),
+      name: values.name.trim(),
+      phone: values.phone.trim(),
+      email: values.email.trim(),
       discountCode,
-      paymentMethod, // ← Dùng ref ở đây
+      paymentMethod: values.paymentMethod,
       totalAmount: total,
       basePrice: isFullShowtime(showtime!) ? showtime!.price || 50000 : (showtime as StaffShowtime).price || 50000,
-    }
+    };
 
     console.log("Payload gửi đi (useCallback + ref):", paymentInfo)
 
@@ -207,6 +238,7 @@ export default function BookingSummary({
       navigate(`/payment/${code}`)
     }
   }, [
+    form,
     code,
     showtime,
     selectedSeats,
@@ -304,38 +336,108 @@ export default function BookingSummary({
         </div>
 
         {/* Phương thức thanh toán */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Phương thức thanh toán</label>
-          <Select
-            value={paymentMethod}
-            onValueChange={(value) => {
-              onPaymentMethodChange?.(value) // ← Gửi lên cha
-              console.log("Dropdown chọn:", value)
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Chọn phương thức" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="MOMO">MOMO</SelectItem>
-              <SelectItem value="VNPAY">VNPAY</SelectItem>
-              <SelectItem value="CARD">Thẻ tín dụng/Ghi nợ</SelectItem>
-              {isStaff && (
-                <SelectItem value="CASH">Tiền mặt (tại quầy)</SelectItem>
+        <Form {...form}>
+          <div className="space-y-6">
+            {/* Phương thức thanh toán - Bắt buộc */}
+            <FormField
+              control={form.control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phương thức thanh toán</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value)
+                      onPaymentMethodChange?.(value) // chỉ thông báo, KHÔNG sync ngược
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn phương thức" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="MOMO">MOMO</SelectItem>
+                      <SelectItem value="VNPAY">VNPAY</SelectItem>
+                      <SelectItem value="CARD">Thẻ tín dụng/Ghi nợ</SelectItem>
+                      {isStaff && <SelectItem value="CASH">Tiền mặt (tại quầy)</SelectItem>}
+                      <SelectItem value="ZALOPAY">ZaloPay</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )}
-              <SelectItem value="ZALOPAY">ZaloPay</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            />
 
-        {/* Thông tin liên hệ */}
-        <div className="space-y-4">
-          <h4 className="font-semibold text-lg">Thông tin liên hệ</h4>
-          <Input placeholder="Họ và tên" value={name} onChange={e => setName(e.target.value)} disabled={!!customer} />
-          <Input type="tel" placeholder="Số điện thoại" value={phone} onChange={e => setPhone(e.target.value)} disabled={!!customer} />
-          <Input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={!!customer} />
-          {customer && <p className="text-sm text-muted-foreground">Đã đăng nhập với {customer.email}</p>}
-        </div>
+            {/* Thông tin liên hệ */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-lg">Thông tin liên hệ</h4>
+
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Họ và tên</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Họ và tên" {...field} disabled={!!customer} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Số điện thoại</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="tel"
+                        placeholder="Ví dụ: 0912345678"
+                        {...field}
+                        disabled={!!customer}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9+]/g, "");
+                          field.onChange(val);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="email@domain.com"
+                        {...field}
+                        disabled={!!customer}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        </Form>
+
+        {customer && (
+          <p className="text-sm text-muted-foreground">
+            Đã đăng nhập với {customer.email}. Thông tin sẽ được sử dụng tự động.
+          </p>
+        )}
 
         {error && (
           <Alert variant="destructive">
@@ -348,9 +450,13 @@ export default function BookingSummary({
           <Button
             onClick={handleProceed}
             className="w-full h-12 text-lg"
-            disabled={selectedSeats.length === 0}
+            disabled={
+              !form.formState.isValid ||
+              selectedSeats.length === 0 ||
+              form.formState.isSubmitting
+            }
           >
-            Tiếp tục thanh toán
+            {form.formState.isSubmitting ? "Đang xử lý..." : "Tiếp tục thanh toán"}
           </Button>
         )}
 
