@@ -65,9 +65,9 @@ export default function BookingSummary({
   const navigate = useNavigate()
   const [discountCode, setDiscountCode] = useState("")
   const { customer } = useAuthStore()
-  const [name, setName] = useState(customer?.username || customer?.email.split("@")[0] || "")
-  const [phone, setPhone] = useState(customer?.phone || "")
-  const [email, setEmail] = useState(customer?.email || "")
+  // const [name, setName] = useState(customer?.username || customer?.email.split("@")[0] || "")
+  // const [phone, setPhone] = useState(customer?.phone || "")
+  // const [email, setEmail] = useState(customer?.email || "")
 
   // Mặc định MOMO cho khách online, CASH cho staff
   //const [paymentMethod, setPaymentMethod] = useState<string>(isStaff ? "CASH" : "MOMO")
@@ -91,14 +91,17 @@ export default function BookingSummary({
       paymentMethod: isStaff ? "CASH" : undefined, // ⭐ KHÔNG dùng ""
     },
   });
+  const name = form.watch("name");
+  const phone = form.watch("phone");
+  const email = form.watch("email");
+
   useEffect(() => {
-    const values = form.getValues();
     onCustomerInfoChange?.({
-      name: values.name,
-      phone: values.phone,
-      email: values.email,
+      name,
+      phone,
+      email,
     });
-  }, [form.watch(), onCustomerInfoChange]);
+  }, [name, phone, email, onCustomerInfoChange]);
   // useEffect(() => {
   //   form.setValue("paymentMethod", paymentMethod);
   // }, [paymentMethod, form]);
