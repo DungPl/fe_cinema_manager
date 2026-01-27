@@ -433,7 +433,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             //reason: conflictingExisting.some((s: any) => isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))) ? "Trùng lịch phòng (tồn tại)" : "Khoảng cách suất chiếu trong phòng quá gần (tồn tại)",
                                             reason: hasTrueOverlap
                                                 ? "Trùng lịch phòng (tồn tại - chồng lấn)"
-                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${hasTrueOverlap ? 10 : 20} phút)`,
+                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${hasTrueOverlap ? 20 : 10} phút)`,
                                             conflicts: conflictingExisting.map((c: any) => {
                                                 const title = c.Movie?.title || "Phim khác";
                                                 const start = formatDate(toLocalDate(c.start), "HH:mm");
@@ -443,7 +443,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         });
                                         continue;
                                     }
-                                    // --- CHECK WITH PREVIEWS IN SAME ROOM ---
                                     // CHECK WITH PREVIEWS IN SAME ROOM
                                     const roomPreviews = previews.filter(
                                         p => p.roomId === roomIdNum && p.date === formatDate(previewDate, "dd/MM/yyyy")
@@ -501,12 +500,18 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         continue;
                                     }
                                     // --- NEARBY checks (other rooms) using allExisting ---
-                                    const otherExisting = allExisting.filter(s => s.movieId === Number(value.movieId) && Number(s.roomId) !== roomIdNum && s.start.split('T')[0] === dateKey);
-                                    const nearbyConflictsExisting = otherExisting.filter((s: any) => {
+                                    const sameRoomExisting = allExisting.filter(s =>
+                                        Number(s.roomId) === roomIdNum &&
+                                        s.start.split('T')[0] === dateKey
+                                    );
+
+                                    const overlappingSameRoom = sameRoomExisting.filter((s: any) => {
                                         const sStart = toLocalDate(s.start);
-                                        return Math.abs(startTime.getTime() - sStart.getTime()) < minGapBetweenRooms;
+                                        const sEnd = toLocalDate(s.end);
+                                        return isOverlap(startTime, endTime, sStart, sEnd);
                                     });
-                                    if (nearbyConflictsExisting.length > 0) {
+
+                                    if (overlappingSameRoom.length > 0) {
                                         skipped++;
                                         skippedPreviews.push({
                                             date: formatDate(previewDate, "dd/MM/yyyy"),
@@ -514,17 +519,31 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             format,
                                             startTime: formatDate(startTime, "HH:mm"),
                                             endTime: formatDate(endTime, "HH:mm"),
-                                            reason: "Trùng lịch gần phòng khác (tồn tại)",
-                                            conflicts: nearbyConflictsExisting.map((c: any) => `${c.Room?.name || "Room " + c.roomId}: ${c.movie?.title || "Unknown"} (${formatDate(new Date(c.start), "HH:mm")}-${formatDate(new Date(c.end), "HH:mm")})`)
+                                            reason: "Trùng thời gian trong cùng phòng",
+                                            conflicts: overlappingSameRoom.map(c =>
+                                                `${c.Room?.name || "Room " + c.roomId} (${formatDate(new Date(c.start), "HH:mm")}-${formatDate(new Date(c.end), "HH:mm")})`
+                                            )
                                         });
                                         continue;
                                     }
-                                    const otherPreviews = previews.filter(p => p.roomId !== roomIdNum && p.date === formatDate(previewDate, "dd/MM/yyyy"));
-                                    const nearbyConflictsPreviews = otherPreviews.filter((p: any) => {
-                                        const pStart = parseTimeOnDate(previewDate, p.startTime);
-                                        return Math.abs(startTime.getTime() - pStart.getTime()) < minGapBetweenRooms;
+
+
+
+
+                                    const nearbySameRoom = sameRoomExisting.filter((s: any) => {
+                                        const sStart = toLocalDate(s.start);
+                                        const sEnd = toLocalDate(s.end);
+
+                                        const gapBefore = startTime.getTime() - sEnd.getTime();
+                                        const gapAfter = sStart.getTime() - endTime.getTime();
+
+                                        return (
+                                            (gapBefore >= 0 && gapBefore < minGapBetweenRooms) ||
+                                            (gapAfter >= 0 && gapAfter < minGapBetweenRooms)
+                                        );
                                     });
-                                    if (nearbyConflictsPreviews.length > 0) {
+
+                                    if (nearbySameRoom.length > 0) {
                                         skipped++;
                                         skippedPreviews.push({
                                             date: formatDate(previewDate, "dd/MM/yyyy"),
@@ -532,11 +551,15 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             format,
                                             startTime: formatDate(startTime, "HH:mm"),
                                             endTime: formatDate(endTime, "HH:mm"),
-                                            reason: "Trùng lịch gần phòng khác (preview)",
-                                            conflicts: nearbyConflictsPreviews.map((c: any) => `${c.room} - ${c.format} (${c.startTime}-${c.endTime})`)
+                                            reason: "Khoảng cách giữa 2 suất chiếu trong cùng phòng < 10 phút",
+                                            conflicts: nearbySameRoom.map(c =>
+                                                `${c.Room?.name || "Room " + c.roomId} (${formatDate(new Date(c.start), "HH:mm")}-${formatDate(new Date(c.end), "HH:mm")})`
+                                            )
                                         });
                                         continue;
                                     }
+
+
                                     // OK push
                                     previews.push({
                                         date: formatDate(previewDate, "dd/MM/yyyy"),
