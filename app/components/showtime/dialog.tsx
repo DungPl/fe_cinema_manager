@@ -433,7 +433,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             //reason: conflictingExisting.some((s: any) => isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))) ? "Trùng lịch phòng (tồn tại)" : "Khoảng cách suất chiếu trong phòng quá gần (tồn tại)",
                                             reason: hasTrueOverlap
                                                 ? "Trùng lịch phòng (tồn tại - chồng lấn)"
-                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${hasTrueOverlap ? 20 : 10} phút)`,
+                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${hasTrueOverlap ? 10 : 20} phút)`,
                                             conflicts: conflictingExisting.map((c: any) => {
                                                 const title = c.Movie?.title || "Phim khác";
                                                 const start = formatDate(toLocalDate(c.start), "HH:mm");
