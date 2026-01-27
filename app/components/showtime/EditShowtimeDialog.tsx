@@ -76,7 +76,9 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
     const [movies, setMovies] = useState<Movie[]>([])
     const [cinemas, setCinemas] = useState<Cinema[]>([])
     const [rooms, setRooms] = useState<Room[]>([])
-    const [selectedProvince, setSelectedProvince] = useState(editingShowtime.room.cinema.address?.[0]?.province || "")
+    const [selectedProvince, setSelectedProvince] = useState(
+        editingShowtime.room.cinema.address?.[0]?.province || ""
+    );
     const [selectedCinema, setSelectedCinema] = useState<number | null>(editingShowtime.room.cinema.id || null)
     const [selectedRoom, setSelectedRoom] = useState<string>(editingShowtime.room.id.toString() || "")
     const [selectedFormat, setSelectedFormat] = useState<string>(editingShowtime.room.formats?.[0]?.name || "2D")
@@ -92,7 +94,7 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
     const timeOptions: string[] = [];
     for (let h = 8; h <= 23; h++) {
         for (let m of [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]) {
-            if (h === 23 && m > 30) continue;
+            if (h === 24 && m > 30) continue;
             const hh = h.toString().padStart(2, "0");
             const mm = m.toString().padStart(2, "0");
             timeOptions.push(`${hh}:${mm}`);
@@ -105,16 +107,19 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
             try {
                 const [moviesRes, cinemasRes] = await Promise.all([
                     getMovies({ showingStatus: "NOW_SHOWING" }),
-                    getCinemas({ limit: 100 })
+                    getCinemas({ limit: 500 })
                 ])
+
 
                 setMovies(moviesRes.rows)
                 setCinemas(cinemasRes.rows)
+
             } catch (err) {
                 console.error("Lỗi fetch data:", err)
             }
         }
         fetchData()
+
     }, [])
 
     // Fetch rooms khi chọn cinema
@@ -160,7 +165,7 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                 return;
             }
             const movie = await getMovieById(movieIdNum);
-            console.log("Fetched movie:", movie); // Debug
+            //console.log("Fetched movie:", movie); // Debug
             setSelectedMovie(movie);
             setMovieDuration(movie?.duration || 120);
         } catch (err) {
@@ -279,7 +284,16 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                             return;
                         }
                     }
+                    function isInLunchRange(date: Date, breakStartHour: number, breakEndHour: number) {
+                        const h = date.getHours();
+                        return h >= breakStartHour && h < breakEndHour;
+                    }
+                    const startInLunch = isInLunchRange(startTime, breakStartHour, breakEndHour);
+                    const endInLunch = isInLunchRange(endTime, breakStartHour, breakEndHour);
 
+                    const min_gap_in_room_minutes =
+                        startInLunch && endInLunch ? 20 : 10;
+                    const min_gap_in_room_ms = min_gap_in_room_minutes * 60 * 1000;
                     // --- CHECK WITH EXISTING IN SAME ROOM (exclude self) ---
                     const roomExisting = existingByRoom.get(roomIdNum) ?? [];
                     let conflictingExisting: any[] = [];
@@ -287,11 +301,12 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                         if (s.id === editingShowtime.id) continue;  // Exclude self
                         const sStart = toLocalDate(s.start);
                         const sEnd = toLocalDate(s.end);
-                        const minGapMs = getMinGap(sEnd) * 60 * 1000;
+
+                        //const minGapMs = getMinGap(sEnd) * 60 * 1000;
                         if (
                             isOverlap(startTime, endTime, sStart, sEnd) ||
-                            (endTime <= sStart && (sStart.getTime() - endTime.getTime()) < minGapMs) ||
-                            (sEnd <= startTime && (startTime.getTime() - sEnd.getTime()) < minGapMs)
+                            (endTime <= sStart && (sStart.getTime() - endTime.getTime()) < min_gap_in_room_ms) ||
+                            (sEnd <= startTime && (startTime.getTime() - sEnd.getTime()) < min_gap_in_room_ms)
                         ) {
                             conflictingExisting.push(s);
                         }
@@ -396,7 +411,20 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
             setIsSubmitting(false)
         }
     }
+    useEffect(() => {
+        const province = form.getValues("province")
+        if (province) {
+            setSelectedProvince(province)
 
+        }
+    }, [form])
+    useEffect(() => {
+        const defaultProvince = editingShowtime.room.cinema.address?.[0]?.province || "";
+        if (defaultProvince && !form.getValues("province")) {
+            form.setValue("province", defaultProvince);
+            setSelectedProvince(defaultProvince);
+        }
+    }, [editingShowtime, form]);
     // Provinces unique từ cinemas
     const provinces: string[] = Array.from(
         new Set(
@@ -408,8 +436,17 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
 
 
     // Cinemas filtered by province
-    const filteredCinemas = selectedProvince ? cinemas.filter(c => c.address?.[0]?.province === selectedProvince) : cinemas
-
+    const filteredCinemas = selectedProvince
+        ? cinemas.filter(c => {
+            const provinceInData = (c.address?.[0]?.province || '').trim().toLowerCase();
+            const selected = selectedProvince.trim().toLowerCase();
+            return provinceInData === selected;
+        })
+        : cinemas;
+    useEffect(() => {
+        console.log("selectedProvince:", selectedProvince);
+        console.log("filteredCinemas:", filteredCinemas.length, filteredCinemas.map(c => c.name));
+    }, [selectedProvince, cinemas]);
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -485,36 +522,64 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                                 control={form.control}
                                 name="province"
                                 render={({ field }) => (
-                                    <FormItem>
+                                    <FormItem className="flex flex-col">
                                         <FormLabel>Khu vực</FormLabel>
-                                        <Select
-                                            onValueChange={(val) => {
-                                                field.onChange(val)
-                                                setSelectedProvince(val)
-                                                setSelectedCinema(null)
-                                                setRooms([])
-                                                form.setValue("cinemaId", "")
-                                                form.setValue("roomId", "")
-                                            }}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Chọn khu vực" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {provinces.map(prov => (
-                                                    <SelectItem key={prov} value={prov}>
-                                                        {prov}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className="w-full justify-between"
+                                                    >
+                                                        {field.value || "Chọn khu vực"}
+                                                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+
+                                            <PopoverContent className="w-full p-0">
+                                                <Command>
+                                                    <CommandInput placeholder="Tìm khu vực..." />
+
+                                                    <CommandList className="max-h-60 overflow-y-auto">
+                                                        <CommandEmpty>Không tìm thấy khu vực</CommandEmpty>
+
+                                                        <CommandGroup>
+                                                            {provinces.map((prov) => (
+                                                                <CommandItem
+                                                                    key={prov}
+                                                                    value={prov}
+                                                                    onSelect={() => {
+                                                                        field.onChange(prov);
+                                                                        setSelectedProvince(prov);
+                                                                        setSelectedCinema(null);
+                                                                        setRooms([]);
+                                                                        form.setValue("cinemaId", "");
+                                                                        form.setValue("roomId", "");
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            prov === field.value ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    {prov}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
+                                                </Command>
+                                            </PopoverContent>
+                                        </Popover>
+
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
+
 
                             {/* RẠP */}
                             <FormField
@@ -538,27 +603,27 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
-
                                             <PopoverContent className="w-full p-0">
                                                 <Command>
                                                     <CommandInput placeholder="Tìm tên rạp..." />
-                                                    <CommandEmpty>Không tìm thấy rạp</CommandEmpty>
-
-                                                    <CommandGroup>
-                                                        {filteredCinemas.map((c) => (
-                                                            <CommandItem
-                                                                key={c.id}
-                                                                value={c.name}
-                                                                onSelect={() => {
-                                                                    field.onChange(c.id!.toString())
-                                                                    setSelectedCinema(c.id!)
-                                                                    form.setValue("roomId", "")
-                                                                }}
-                                                            >
-                                                                {c.name}
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
+                                                    <CommandList className="max-h-60 overflow-y-auto">
+                                                        <CommandEmpty>Không tìm thấy rạp</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {filteredCinemas.map((c) => (
+                                                                <CommandItem
+                                                                    key={c.id}
+                                                                    value={c.name}
+                                                                    onSelect={() => {
+                                                                        field.onChange(c.id!.toString())
+                                                                        setSelectedCinema(c.id!)
+                                                                        // form.setValue("roomIds", "")
+                                                                    }}
+                                                                >
+                                                                    {c.name}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </CommandList>
                                                 </Command>
                                             </PopoverContent>
                                         </Popover>

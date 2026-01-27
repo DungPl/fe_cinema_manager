@@ -102,6 +102,7 @@ function isOverlap(startA: Date, endA: Date, startB: Date, endB: Date) {
 function toLocalDate(dateString: string) {
     return new Date(dateString);
 }
+
 export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onOpenChange }: CreateShowtimeDialogProps) {
     // States
     const [movies, setMovies] = useState<Movie[]>([])
@@ -378,12 +379,20 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                     }
                                     const endTime = addMinutes(startTime, movie.duration || 120);
                                     // dynamic min gap in same room
-                                    const hourAfterShift = startTime.getHours();
-                                    const hourBeforeShift = endTime.getHours();
-                                    const min_gap_in_room_minutes = (hourAfterShift >= breakStartHour && hourBeforeShift < breakEndHour) ? 20 : 10;
+                                    // const hourAfterShift = startTime.getHours();
+                                    // const hourBeforeShift = endTime.getHours();
+                                    function isInLunchRange(date: Date, breakStartHour: number, breakEndHour: number) {
+                                        const h = date.getHours();
+                                        return h >= breakStartHour && h < breakEndHour;
+                                    }
+                                    const startInLunch = isInLunchRange(startTime, breakStartHour, breakEndHour);
+                                    const endInLunch = isInLunchRange(endTime, breakStartHour, breakEndHour);
+
+                                    const min_gap_in_room_minutes =
+                                        startInLunch && endInLunch ? 20 : 10;
                                     const min_gap_in_room_ms = min_gap_in_room_minutes * 60 * 1000;
                                     // IMAX late limit
-                                    console.log("Thời gian nghỉ ",min_gap_in_room_ms)
+                                    console.log("Thời gian nghỉ ", min_gap_in_room_ms)
                                     if (format === "IMAX" && startTime.getHours() >= 22) {
                                         if ((imaxLateCountPerDay[dateKey] ?? 0) >= 1) {
                                             skipped++;
@@ -400,7 +409,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         const sStart = toLocalDate(s.start);
                                         const sEnd = toLocalDate(s.end);
                                         // Gap mặc định
-                                       
+
                                         if (isOverlap(startTime, endTime, sStart, sEnd) ||
                                             (endTime <= sStart && (sStart.getTime() - endTime.getTime()) < min_gap_in_room_ms) ||
                                             (sEnd <= startTime && (startTime.getTime() - sEnd.getTime()) < min_gap_in_room_ms)
@@ -424,7 +433,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             //reason: conflictingExisting.some((s: any) => isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))) ? "Trùng lịch phòng (tồn tại)" : "Khoảng cách suất chiếu trong phòng quá gần (tồn tại)",
                                             reason: hasTrueOverlap
                                                 ? "Trùng lịch phòng (tồn tại - chồng lấn)"
-                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${hasTrueOverlap ? 10 : 20} phút)`,
+                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${hasTrueOverlap ? 20 : 10} phút)`,
                                             conflicts: conflictingExisting.map((c: any) => {
                                                 const title = c.Movie?.title || "Phim khác";
                                                 const start = formatDate(toLocalDate(c.start), "HH:mm");
@@ -599,7 +608,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
     const timeOptions: string[] = [];
     for (let h = 8; h <= 23; h++) {
         for (let m of [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]) {
-            if (h === 23 && m > 30) continue;
+            if (h === 24 && m > 30) continue;
             const hh = h.toString().padStart(2, "0");
             const mm = m.toString().padStart(2, "0");
             timeOptions.push(`${hh}:${mm}`);
