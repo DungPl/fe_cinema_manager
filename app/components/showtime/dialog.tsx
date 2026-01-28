@@ -121,6 +121,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [existingShowtimes, setExistingShowtimes] = useState<any[]>([])
     const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+    const [isMovieLocked,setIsMovieLocked ]= useState(false)
     // Fetch data
     useEffect(() => {
         const fetchData = async () => {
@@ -378,9 +379,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         continue;
                                     }
                                     const endTime = addMinutes(startTime, movie.duration || 120);
-                                    // dynamic min gap in same room
-                                    // const hourAfterShift = startTime.getHours();
-                                    // const hourBeforeShift = endTime.getHours();
                                     function isInLunchRange(date: Date, breakStartHour: number, breakEndHour: number) {
                                         const h = date.getHours();
                                         return h >= breakStartHour && h < breakEndHour;
@@ -419,7 +417,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         }
                                     }
                                     if (conflictingExisting.length > 0) {
-                                        if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
+                                        //if (DEBUG) console.log("Conflicting existing found:", conflictingExisting);
                                         skipped++;
                                         const hasTrueOverlap = conflictingExisting.some(s =>
                                             isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))
@@ -433,7 +431,8 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                             //reason: conflictingExisting.some((s: any) => isOverlap(startTime, endTime, toLocalDate(s.start), toLocalDate(s.end))) ? "Trùng lịch phòng (tồn tại)" : "Khoảng cách suất chiếu trong phòng quá gần (tồn tại)",
                                             reason: hasTrueOverlap
                                                 ? "Trùng lịch phòng (tồn tại - chồng lấn)"
-                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${hasTrueOverlap ? 20 : 10} phút)`,
+                                                : `Khoảng cách suất chiếu trong phòng quá gần (tồn tại - cần ít nhất ${min_gap_in_room_minutes} phút)`,
+
                                             conflicts: conflictingExisting.map((c: any) => {
                                                 const title = c.Movie?.title || "Phim khác";
                                                 const start = formatDate(toLocalDate(c.start), "HH:mm");
@@ -526,10 +525,6 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         });
                                         continue;
                                     }
-
-
-
-
                                     const nearbySameRoom = sameRoomExisting.filter((s: any) => {
                                         const sStart = toLocalDate(s.start);
                                         const sEnd = toLocalDate(s.end);
@@ -558,7 +553,57 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                                         });
                                         continue;
                                     }
+                                    const MIN_GAP_BETWEEN_ROOMS_MS = 10 * 60 * 1000;
+                                    const otherRoomExisting = allExisting.filter(s =>
+                                        Number(s.roomId) !== roomIdNum &&
+                                        s.start.split("T")[0] === dateKey
+                                    );
 
+                                    const conflictOtherRoomStart = otherRoomExisting.filter(s => {
+                                        const sStart = toLocalDate(s.start);
+                                        return Math.abs(startTime.getTime() - sStart.getTime()) < MIN_GAP_BETWEEN_ROOMS_MS;
+                                    });
+
+                                    if (conflictOtherRoomStart.length > 0) {
+                                        skipped++;
+                                        skippedPreviews.push({
+                                            date: formatDate(previewDate, "dd/MM/yyyy"),
+                                            room: room.name,
+                                            format,
+                                            startTime: formatDate(startTime, "HH:mm"),
+                                            endTime: formatDate(endTime, "HH:mm"),
+                                            reason: "Giờ bắt đầu quá gần suất chiếu phòng khác (< 10 phút)",
+                                            conflicts: conflictOtherRoomStart.map(c =>
+                                                `${c.Room?.name || "Room " + c.roomId} (${formatDate(toLocalDate(c.start), "HH:mm")})`
+                                            )
+                                        });
+                                        continue;
+                                    }
+                                    const otherRoomPreviews = previews.filter(p =>
+                                        p.roomId !== roomIdNum &&
+                                        p.date === formatDate(previewDate, "dd/MM/yyyy")
+                                    );
+
+                                    const conflictPreviewStart = otherRoomPreviews.filter(p => {
+                                        const pStart = parseTimeOnDate(previewDate, p.startTime);
+                                        return Math.abs(startTime.getTime() - pStart.getTime()) < MIN_GAP_BETWEEN_ROOMS_MS;
+                                    });
+
+                                    if (conflictPreviewStart.length > 0) {
+                                        skipped++;
+                                        skippedPreviews.push({
+                                            date: formatDate(previewDate, "dd/MM/yyyy"),
+                                            room: room.name,
+                                            format,
+                                            startTime: formatDate(startTime, "HH:mm"),
+                                            endTime: formatDate(endTime, "HH:mm"),
+                                            reason: "Giờ bắt đầu quá gần suất chiếu phòng khác (preview)",
+                                            conflicts: conflictPreviewStart.map(c =>
+                                                `${c.room} (${c.startTime})`
+                                            )
+                                        });
+                                        continue;
+                                    }
 
                                     // OK push
                                     previews.push({
@@ -637,6 +682,13 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             timeOptions.push(`${hh}:${mm}`);
         }
     }
+    const nowShowingMovies = movies.filter(
+        m => m.statusMovie === "NOW_SHOWING"
+    )
+
+    const comingSoonMovies = movies.filter(
+        m => m.statusMovie === "COMING_SOON"
+    )
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -652,46 +704,141 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                             <FormField
                                 control={form.control}
                                 name="movieId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Phim</FormLabel>
-                                        <Select
-                                            onValueChange={(val) => {
-                                                field.onChange(val);
-                                                fetchMovieDetails(val);
-                                            }}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Chọn phim" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {movies.map(m => (
-                                                    <SelectItem key={m.id} value={m.id.toString()}>
-                                                        {m.title}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                        {isFetchingMovie && <p className="text-sm text-gray-500 mt-2">Đang tải...</p>}
-                                        {selectedMovie && (
-                                            <div className="mt-4 space-y-2">
-                                                <img
-                                                    src={selectedMovie.posters[0].url}
-                                                    alt={selectedMovie.title}
-                                                    className="w-full h-48 object-cover rounded-md"
-                                                />
-                                                <p className="text-sm text-gray-600">
-                                                    Thời lượng: {selectedMovie.duration} phút
-                                                </p>
+                                render={({ field }) => {
+                                    const selectedMovieId = field.value;
+                                    const selectedMovieData = [...nowShowingMovies, ...comingSoonMovies].find(
+                                        m => m.id.toString() === selectedMovieId
+                                    );
+
+                                    return (
+                                        <FormItem className="flex flex-col">
+                                            <div className="flex items-center justify-between">
+                                                <FormLabel>Phim</FormLabel>
+                                                {selectedMovieData && isMovieLocked && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        type="button"
+                                                        onClick={() => setIsMovieLocked(false)}
+                                                        className="text-xs text-muted-foreground hover:text-primary"
+                                                    >
+                                                        Sửa phim
+                                                    </Button>
+                                                )}
                                             </div>
-                                        )}
-                                    </FormItem>
-                                )}
+
+                                            {/* Nếu locked → hiển thị info phim, ẩn Combobox */}
+                                            {isMovieLocked && selectedMovieData ? (
+                                                <div className="mt-2 space-y-3 border rounded-md p-3 bg-muted/50">
+                                                    <div className="flex items-start gap-4">
+                                                        {selectedMovieData.posters?.[0]?.url && (
+                                                            <img
+                                                                src={selectedMovieData.posters[0].url}
+                                                                alt={selectedMovieData.title}
+                                                                className="w-24 h-36 object-cover rounded-md shadow-sm"
+                                                                onError={(e) => (e.currentTarget.style.display = "none")}
+                                                            />
+                                                        )}
+                                                        <div>
+                                                            <p className="font-medium">{selectedMovieData.title}</p>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                Thời lượng: {selectedMovieData.duration || "N/A"} phút
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                {selectedMovieData.statusMovie === "NOW_SHOWING" ? "Đang chiếu" : "Sắp chiếu"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    {/* Hidden input để giữ giá trị trong form */}
+                                                    <input type="hidden" {...field} value={field.value} />
+                                                </div>
+                                            ) : (
+                                                /* Combobox chọn phim - chỉ hiện khi chưa lock hoặc đang sửa */
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                                variant="outline"
+                                                                role="combobox"
+                                                                className="w-full justify-between"
+                                                            >
+                                                                {field.value
+                                                                    ? selectedMovieData?.title || "Chọn phim"
+                                                                    : "Chọn phim"}
+                                                                <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                    </PopoverTrigger>
+
+                                                    <PopoverContent className="w-[400px] p-0">
+                                                        <Command>
+                                                            <CommandInput placeholder="Tìm phim theo tên..." />
+                                                            <CommandEmpty>Không tìm thấy phim</CommandEmpty>
+
+                                                            <CommandList className="max-h-72 overflow-y-auto">
+                                                                <CommandGroup heading="🎬 Đang chiếu">
+                                                                    {nowShowingMovies.map(m => (
+                                                                        <CommandItem
+                                                                            key={m.id}
+                                                                            value={m.title}
+                                                                            onSelect={() => {
+                                                                                field.onChange(m.id.toString());
+                                                                                fetchMovieDetails(m.id.toString());
+                                                                                // Lock lại sau khi chọn
+                                                                                setIsMovieLocked(true);
+                                                                            }}
+                                                                        >
+                                                                            {m.title}
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandGroup>
+
+                                                                <CommandGroup heading="⏳ Sắp chiếu">
+                                                                    {comingSoonMovies.map(m => (
+                                                                        <CommandItem
+                                                                            key={m.id}
+                                                                            value={m.title}
+                                                                            onSelect={() => {
+                                                                                field.onChange(m.id.toString());
+                                                                                fetchMovieDetails(m.id.toString());
+                                                                                setIsMovieLocked(true);
+                                                                            }}
+                                                                        >
+                                                                            {m.title}
+                                                                            <span className="ml-2 text-xs text-muted-foreground">
+                                                                                (Coming soon)
+                                                                            </span>
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            )}
+
+                                            <FormMessage />
+
+                                            {/* Nếu đang lock, hiện poster + info nhỏ bên dưới */}
+                                            {isMovieLocked && selectedMovieData && (
+                                                <div className="mt-2">
+                                                    {selectedMovieData.posters?.[0]?.url && (
+                                                        <img
+                                                            src={selectedMovieData.posters[0].url}
+                                                            alt={selectedMovieData.title}
+                                                            className="w-full max-h-48 object-cover rounded-md"
+                                                            onError={(e) => (e.currentTarget.style.display = "none")}
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
+                                        </FormItem>
+                                    );
+                                }}
                             />
+
+
+
                             {/* KHU VỰC */}
                             <FormField
                                 control={form.control}

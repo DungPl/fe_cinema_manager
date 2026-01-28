@@ -1,5 +1,3 @@
-// ~/components/showtime/EditShowtimeDialog.tsx
-// Copy và adjust từ CreateShowtimeDialog
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "~/components/ui/dialog"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "~/components/ui/form"
@@ -76,9 +74,8 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
     const [movies, setMovies] = useState<Movie[]>([])
     const [cinemas, setCinemas] = useState<Cinema[]>([])
     const [rooms, setRooms] = useState<Room[]>([])
-    const [selectedProvince, setSelectedProvince] = useState(
-        editingShowtime.room.cinema.address?.[0]?.province || ""
-    );
+    const [selectedProvince, setSelectedProvince] = useState<string>("")
+
     const [selectedCinema, setSelectedCinema] = useState<number | null>(editingShowtime.room.cinema.id || null)
     const [selectedRoom, setSelectedRoom] = useState<string>(editingShowtime.room.id.toString() || "")
     const [selectedFormat, setSelectedFormat] = useState<string>(editingShowtime.room.formats?.[0]?.name || "2D")
@@ -105,22 +102,51 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [moviesRes, cinemasRes] = await Promise.all([
+                const [moviesRes, soonRes, cinemasRes] = await Promise.all([
                     getMovies({ showingStatus: "NOW_SHOWING" }),
-                    getCinemas({ limit: 500 })
+                    getMovies({ showingStatus: "COMING_SOON" }),
+                    getCinemas({ limit: 500 }),
                 ])
 
+                const movieMap = new Map<number, Movie>()
 
-                setMovies(moviesRes.rows)
+                // 1️⃣ Thêm phim đang chiếu trước
+                moviesRes.rows.forEach(movie => {
+                    movieMap.set(movie.id, movie)
+                })
+
+                // 2️⃣ Thêm phim sắp chiếu (nếu chưa có)
+                soonRes.rows.forEach(movie => {
+                    if (!movieMap.has(movie.id)) {
+                        movieMap.set(movie.id, movie)
+                    }
+                })
+
+                const uniqueMovies = Array.from(movieMap.values())
+
+                // 3️⃣ Sắp xếp: NOW_SHOWING trước, COMING_SOON sau
+                uniqueMovies.sort((a, b) => {
+                    const aIsNow = moviesRes.rows.some(m => m.id === a.id)
+                    const bIsNow = moviesRes.rows.some(m => m.id === b.id)
+
+                    if (aIsNow && !bIsNow) return -1
+                    if (!aIsNow && bIsNow) return 1
+
+                    return a.title.localeCompare(b.title)
+                })
+
+                // ✅ SET ĐÚNG DANH SÁCH PHIM ĐÃ GỘP
+                setMovies(uniqueMovies)
                 setCinemas(cinemasRes.rows)
 
             } catch (err) {
                 console.error("Lỗi fetch data:", err)
             }
         }
-        fetchData()
 
+        fetchData()
     }, [])
+
 
     // Fetch rooms khi chọn cinema
     useEffect(() => {
@@ -144,16 +170,21 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            movieId: editingShowtime.movie.id.toString() || "",
-            province: editingShowtime.room.cinema.address?.[0]?.province || "",
-            cinemaId: editingShowtime.room.cinema.id?.toString() || "",
-            roomId: editingShowtime.room.id.toString() || "",
-            format: editingShowtime.room.formats?.[0]?.name as "2D" | "3D" | "IMAX" | "4DX" || "2D",
-            startDate: new Date(editingShowtime.start_time) || selectedDate || new Date(),
-            startTime: format(new Date(editingShowtime.start_time), "HH:mm") || "",
+            movieId: editingShowtime.movie.id.toString(),
+            province: "",
+            cinemaId: "",
+            roomId: "",
+            format: (editingShowtime.room.formats?.[0]?.name as
+                | "2D"
+                | "3D"
+                | "IMAX"
+                | "4DX") || "2D",
+            startDate: new Date(editingShowtime.start_time),
+            startTime: format(new Date(editingShowtime.start_time), "HH:mm"),
             price: editingShowtime.price || 80000,
         },
     })
+
 
     const fetchMovieDetails = async (movieId: string) => {
         if (!movieId) return;
@@ -236,10 +267,7 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                         // startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), breakEndHour, 0, 0);
                     }
 
-                    // Vì single room, idx = 0, không cần offset
-                    // Nhưng nếu muốn apply lunch gap, có thể adjust
 
-                    // normalize
                     startTime = new Date(previewDate.getFullYear(), previewDate.getMonth(), previewDate.getDate(), startTime.getHours(), startTime.getMinutes(), 0);
 
                     if (formatDate(startTime, "yyyy-MM-dd") !== dateKey) {
@@ -411,20 +439,14 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
             setIsSubmitting(false)
         }
     }
-    useEffect(() => {
-        const province = form.getValues("province")
-        if (province) {
-            setSelectedProvince(province)
-
-        }
-    }, [form])
-    useEffect(() => {
-        const defaultProvince = editingShowtime.room.cinema.address?.[0]?.province || "";
-        if (defaultProvince && !form.getValues("province")) {
-            form.setValue("province", defaultProvince);
-            setSelectedProvince(defaultProvince);
-        }
-    }, [editingShowtime, form]);
+   
+    // useEffect(() => {
+    //     const defaultProvince = editingShowtime.room.cinema.address?.[0]?.province || "";
+    //     if (defaultProvince && !form.getValues("province")) {
+    //         form.setValue("province", defaultProvince);
+    //         setSelectedProvince(defaultProvince);
+    //     }
+    // }, [editingShowtime, form]);
     // Provinces unique từ cinemas
     const provinces: string[] = Array.from(
         new Set(
@@ -433,6 +455,31 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                 .filter((p): p is string => typeof p === "string")
         )
     )
+    useEffect(() => {
+        if (!open) return
+
+        const province = editingShowtime.room.cinema.address?.[0]?.province
+        const cinemaId = editingShowtime.room.cinema.id
+        const roomId = editingShowtime.room.id
+
+        if (province) {
+            // set cho form
+            form.setValue("province", province)
+                console.log("selectedProvince:",province);
+            // set cho UI filter
+            setSelectedProvince(province)
+        }
+
+        if (cinemaId) {
+            form.setValue("cinemaId", cinemaId.toString())
+            setSelectedCinema(cinemaId)
+        }
+
+        if (roomId) {
+            form.setValue("roomId", roomId.toString())
+            setSelectedRoom(roomId.toString())
+        }
+    }, [open])
 
 
     // Cinemas filtered by province
@@ -443,10 +490,10 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
             return provinceInData === selected;
         })
         : cinemas;
-    useEffect(() => {
-        console.log("selectedProvince:", selectedProvince);
-        console.log("filteredCinemas:", filteredCinemas.length, filteredCinemas.map(c => c.name));
-    }, [selectedProvince, cinemas]);
+    // useEffect(() => {
+    //     console.log("selectedProvince:", editingShowtime.room.cinema.address?.[0]?.province );
+    //     console.log("filteredCinemas:", filteredCinemas.length, filteredCinemas.map(c => c.name));
+    // }, [selectedProvince, cinemas]);
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -533,7 +580,7 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                                                         role="combobox"
                                                         className="w-full justify-between"
                                                     >
-                                                        {field.value || "Chọn khu vực"}
+                                                        {selectedProvince || "Chọn khu vực"}
                                                         <ChevronsUpDown className="h-4 w-4 opacity-50" />
                                                     </Button>
                                                 </FormControl>
@@ -542,7 +589,6 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                                             <PopoverContent className="w-full p-0">
                                                 <Command>
                                                     <CommandInput placeholder="Tìm khu vực..." />
-
                                                     <CommandList className="max-h-60 overflow-y-auto">
                                                         <CommandEmpty>Không tìm thấy khu vực</CommandEmpty>
 
@@ -552,18 +598,18 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                                                                     key={prov}
                                                                     value={prov}
                                                                     onSelect={() => {
-                                                                        field.onChange(prov);
-                                                                        setSelectedProvince(prov);
-                                                                        setSelectedCinema(null);
-                                                                        setRooms([]);
-                                                                        form.setValue("cinemaId", "");
-                                                                        form.setValue("roomId", "");
+                                                                        field.onChange(prov)        // Form
+                                                                        setSelectedProvince(prov)   // UI
+                                                                        setSelectedCinema(null)
+                                                                        setRooms([])
+                                                                        form.setValue("cinemaId", "")
+                                                                        form.setValue("roomId", "")
                                                                     }}
                                                                 >
                                                                     <Check
                                                                         className={cn(
                                                                             "mr-2 h-4 w-4",
-                                                                            prov === field.value ? "opacity-100" : "opacity-0"
+                                                                            prov === selectedProvince ? "opacity-100" : "opacity-0"
                                                                         )}
                                                                     />
                                                                     {prov}
@@ -579,6 +625,7 @@ export function EditShowtimeDialog({ selectedDate, refreshShowtimes, editingShow
                                     </FormItem>
                                 )}
                             />
+
 
 
                             {/* RẠP */}
