@@ -49,9 +49,13 @@ const formSchema = z.object({
     cinemaId: z.string().min(1, "Chọn rạp"),
     roomIds: z.array(z.string()).min(1, "Chọn ít nhất 1 phòng"),
     formats: z.array(z.enum(["2D", "3D", "IMAX", "4DX"])).min(1, "Chọn ít nhất 1 format"),
-    languageTypes: z.array(
-        z.enum(["VI_SUB", "VI_DUB", "EN_SUB", "EN_DUB"])
-    ).min(1, "Chọn ít nhất 1 loại phụ đề / lồng tiếng"),
+    languageType: z.enum(["VI_SUB", "VI_DUB", "EN_SUB", "EN_DUB"])
+        .refine(val => !!val, {
+            message: "Vui lòng chọn phụ đề / lồng tiếng",
+        }),
+
+
+
     startDate: z.date(),
     endDate: z.date(),
     timeSlots: z.array(
@@ -222,7 +226,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             cinemaId: "",
             roomIds: [],
             formats: ["2D"],
-            languageTypes: ["VI_SUB"],
+            languageType: "VI_SUB",
             startDate: selectedDate || new Date(),
             endDate: selectedDate || new Date(),
             timeSlots: [],
@@ -646,7 +650,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                 startDate: formatDate(values.startDate, "yyyy-MM-dd"),
                 endDate: formatDate(values.endDate, "yyyy-MM-dd"),
                 formats: values.formats,
-                languageTypes: values.languageTypes,
+                languageType: values.languageType,
                 timeSlots: values.timeSlots.map(t => t.value),
                 price: values.price, // Nếu backend hỗ trợ override
             }
@@ -680,7 +684,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                 .filter((p): p is string => typeof p === "string")
         )
     ]
-    
+
     // Cinemas filtered by province
     const filteredCinemas = selectedProvince ? cinemas.filter(c => c.address?.[0]?.province === selectedProvince) : cinemas
     const timeOptions: string[] = [];
@@ -1035,54 +1039,54 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                             />
                             <FormField
                                 control={form.control}
-                                name="languageTypes"
+                                name="languageType"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Phụ đề / Lồng tiếng</FormLabel>
+
                                         <Popover>
                                             <PopoverTrigger asChild>
                                                 <FormControl>
                                                     <Button variant="outline" className="w-full justify-between">
-                                                        {field.value?.length
-                                                            ? field.value.join(", ")
+                                                        {field.value
+                                                            ? LANGUAGE_OPTIONS.find(o => o.key === field.value)?.label
                                                             : "Chọn phụ đề / lồng tiếng"}
                                                         <ChevronsUpDown className="h-4 w-4 opacity-50" />
                                                     </Button>
                                                 </FormControl>
                                             </PopoverTrigger>
+
                                             <PopoverContent className="w-full p-0">
                                                 <Command>
                                                     <CommandGroup>
-                                                        {LANGUAGE_OPTIONS.map(item => {
-                                                            const selected = field.value?.includes(item.key)
-                                                            return (
-                                                                <CommandItem
-                                                                    key={item.key}
-                                                                    onSelect={() => {
-                                                                        const updated: LanguageType[] = selected
-                                                                            ? field.value.filter((v: LanguageType) => v !== item.key)
-                                                                            : [...field.value, item.key]
-                                                                        field.onChange(updated)
-                                                                    }}
-                                                                >
-                                                                    <Check
-                                                                        className={cn(
-                                                                            "mr-2 h-4",
-                                                                            selected ? "opacity-100" : "opacity-0"
-                                                                        )}
-                                                                    />
-                                                                    {item.label}
-                                                                </CommandItem>
-                                                            )
-                                                        })}
+                                                        {LANGUAGE_OPTIONS.map(item => (
+                                                            <CommandItem
+                                                                key={item.key}
+                                                                onSelect={() => {
+                                                                    field.onChange(item.key)
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4",
+                                                                        field.value === item.key
+                                                                            ? "opacity-100"
+                                                                            : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {item.label}
+                                                            </CommandItem>
+                                                        ))}
                                                     </CommandGroup>
                                                 </Command>
                                             </PopoverContent>
                                         </Popover>
+
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
+
                         </div>
                         {/* NGÀY BẮT ĐẦU - KẾT THÚC */}
                         <div className="grid grid-cols-2 gap-4">

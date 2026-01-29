@@ -6,7 +6,7 @@ import { Input } from "~/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card"
 import { Label } from "~/components/ui/label"
 import { Alert, AlertDescription } from "~/components/ui/alert"
-import { AlertCircle, Loader2 } from "lucide-react" // Thêm Loader2 cho loading
+import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react" // Thêm Loader2 cho loading
 import { apiClient } from "~/lib/api/client"
 import { useAuthStore } from "~/stores/authCustomerStore"
 import type { Customer } from "~/stores/authCustomerStore"
@@ -25,7 +25,7 @@ interface TokenData {
 export default function LoginPage() {
   const navigate = useNavigate()
   const { loginCustomer } = useAuthStore()
-
+  const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -64,7 +64,7 @@ export default function LoginPage() {
     } catch (err: any) {
       // Xử lý lỗi chi tiết từ backend
       const errorMessage = err.response?.data?.message || err.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."
-      
+
       // Nếu backend trả lỗi cụ thể về mật khẩu
       if (errorMessage.includes("password") || errorMessage.includes("mật khẩu")) {
         setError("Mật khẩu không đúng")
@@ -111,17 +111,35 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                placeholder="Nhập mật khẩu"
-                disabled={loading}
-              />
+
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  placeholder="Nhập mật khẩu"
+                  disabled={loading}
+                  className="pr-10"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
+
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
