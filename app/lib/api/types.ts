@@ -593,3 +593,16 @@ export interface StaffWithAccount  {
     cinema?:Cinema
   }
 }
+
+export interface SeatMapItem  {
+  id: number
+  label: string
+  row: string
+  column: number
+  type: string
+  status: string
+  customer?: string
+  phone?: string
+  email?: string
+  // ... các field khác
+}

@@ -121,7 +121,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
     const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
     const [existingShowtimes, setExistingShowtimes] = useState<any[]>([])
     const [isLoadingExisting, setIsLoadingExisting] = useState(false);
-    const [isMovieLocked,setIsMovieLocked ]= useState(false)
+    const [isMovieLocked, setIsMovieLocked] = useState(false)
     // Fetch data
     useEffect(() => {
         const fetchData = async () => {
@@ -654,6 +654,15 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
             //console.log("API response:", response)
             toast.success(`Tạo thành công ${response.data.created} suất chiếu, bỏ qua ${response.data.skipped} suất chiếu do trùng lịch hoặc giờ không hợp lệ!`)
             onOpenChange(false)
+            setSelectedProvince("");
+            setSelectedCinema(null);
+            setSelectedRooms([]);
+            setSelectedFormats([]);
+            setPreviewShowtimes([]);
+            setSkippedPreviews([]);
+            setSkippedCount(0);
+            setExistingShowtimes([]);
+            setIsMovieLocked(false);
             form.reset()
             refreshShowtimes()
         } catch (err: any) {
@@ -671,6 +680,7 @@ export function CreateShowtimeDialog({ selectedDate, refreshShowtimes, open, onO
                 .filter((p): p is string => typeof p === "string")
         )
     ]
+    
     // Cinemas filtered by province
     const filteredCinemas = selectedProvince ? cinemas.filter(c => c.address?.[0]?.province === selectedProvince) : cinemas
     const timeOptions: string[] = [];

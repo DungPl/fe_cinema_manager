@@ -10,13 +10,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover
 import { Calendar } from "~/components/ui/calendar"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
-import { CalendarIcon, Search as SearchIcon, Clock as ClockIcon, Clock, MapPin, ChevronsUpDown, Check } from "lucide-react"
+import { CalendarIcon, Search as SearchIcon, Clock as ClockIcon, Clock, MapPin, ChevronsUpDown, Check, Eye } from "lucide-react"
 import { AlertTriangle } from "lucide-react"
 
 // API fetch showtimes và cinemas
 import { deleteShowtime, getShowtimes } from "~/lib/api/showtimeApi"
 import { getCinemas } from "~/lib/api/cinemaApi"
-import type { ShowtimeResponse, Cinema, LanguageType, ShowtimeFormat } from "~/lib/api/types"
+import type { ShowtimeResponse, Cinema, LanguageType, ShowtimeFormat, SeatMapItem } from "~/lib/api/types"
 import { CreateShowtimeDialog } from "~/components/showtime/dialog"
 import { Button } from "~/components/ui/button"
 import React from "react"
@@ -24,6 +24,7 @@ import { toast } from "sonner"
 import { EditShowtimeDialog } from "~/components/showtime/EditShowtimeDialog"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command"
 import { cn } from "~/lib/utils"
+import { SeatMapDialog } from "~/components/showtime/SeatMapDialog"
 
 export const safeFormat = (value?: string, pattern: string = "dd/MM/yyyy") => {
     if (!value) return "—"; // Không có giá trị → hiển thị dấu gạch
@@ -72,7 +73,9 @@ export default function ScheduleManagement() {
     const [selectedCinema, setSelectedCinema] = useState("Tất cả rạp")
     const [openArea, setOpenArea] = useState(false)
     const [valueArea, setValueArea] = useState(selectedArea)
-
+    const [showSeatMap, setShowSeatMap] = useState(false);
+    const [selectedSeats, setSelectedSeats] = useState<SeatMapItem[]>([]);
+    const [selectedShowtimeId, setSelectedShowtimeId] = useState<number>()
     // Tương tự cho rạp
     const [openCinema, setOpenCinema] = useState(false)
     const [valueCinema, setValueCinema] = useState(selectedCinema)
@@ -224,6 +227,20 @@ export default function ScheduleManagement() {
     function setOpenEdit(open: boolean): void {
         if (!open) {
             setEditingShowtime(null)
+        }
+    }
+
+    const handleViewSeats = async (showtimeId: number) => {
+        try {
+            setSelectedShowtimeId(showtimeId) // ✅ THÊM DÒNG NÀY
+
+            const res = await fetch(`/api/v1/showtime/${showtimeId}/seats`)
+            const data = await res.json()
+            //console.log("sơ đồ ghế",data)
+            setSelectedSeats(data.data.seats)
+            setShowSeatMap(true)
+        } catch (err) {
+            toast.error("Không tải được sơ đồ ghế")
         }
     }
 
@@ -506,8 +523,18 @@ export default function ScheduleManagement() {
                                                 </div>
                                             </TableCell>
 
+                                            <TableCell>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleViewSeats(s.id)}
+                                                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                                                >
+                                                    <span>{booked}/{total}</span>
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                            </TableCell>
 
-                                            <TableCell>{booked}/{total}</TableCell>
+
                                             <TableCell className="flex items-center gap-2">
                                                 <div className="relative w-20 h-2 bg-gray-200 rounded overflow-hidden">
                                                     <div
@@ -757,6 +784,14 @@ export default function ScheduleManagement() {
                 open={isCreateDialogOpen}
                 onOpenChange={setIsCreateDialogOpen}
             />
+            {selectedShowtimeId && (
+                <SeatMapDialog
+                    open={showSeatMap}
+                    onOpenChange={setShowSeatMap}
+                    seats={selectedSeats}
+                    showtimeId={selectedShowtimeId}
+                />
+            )}
 
             {/* Dialog sửa (mở khi editingShowtime != null) */}
             {editingShowtime && (
